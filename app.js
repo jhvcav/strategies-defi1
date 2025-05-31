@@ -179,6 +179,13 @@ class YieldMaxApp {
             amount1Desired: amount1Desired.toString()
         });
 
+        // Créer l'instance du contrat
+        const contract = new ethers.Contract(
+            POLYGON_CONTRACTS.STRATEGY_UNISWAP_V3,
+            STRATEGY_ABI,
+            signer
+        );
+
         // Appel au contrat avec ETH
         const tx = await contract.createPositionAuto(
             token0,
