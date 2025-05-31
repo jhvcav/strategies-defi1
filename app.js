@@ -1,17 +1,13 @@
 console.log('🚀 DÉBUT app.js');
 
-try {
-    console.log('Définition de la classe YieldMaxApp...');
-
 // ===== CONTRACT CONFIGURATION =====
 const POLYGON_CONTRACTS = {
-    STRATEGY_UNISWAP_V3: "0x669227b0bB3A6BFC717fe8bEA17EEF3cB37f5eBC",
-    // Pour plus tard :
-    // STRATEGY_AAVE: "0x...",  
-    // STRATEGY_FLASH: "0x..."
+    STRATEGY_UNISWAP_V3: "0x669227b0bB3A6BFC717fe8bEA17EEF3cB37f5eBC"
 };
 
 const POLYGON_CHAIN_ID = 137;
+
+console.log('Définition de la classe YieldMaxApp...');
 
 // ===== GLOBAL STATE MANAGEMENT =====
 class YieldMaxApp {
@@ -689,10 +685,7 @@ function copyToClipboard(text) {
     }).catch(() => {
         app.showNotification('Erreur lors de la copie', 'error');
     });
-}console.log('✅ Classe YieldMaxApp définie');
-} catch (error) {
-    console.error('❌ Erreur dans app.js:', error);
-}
+}   
 
 console.log('🏁 FIN app.js');
 
