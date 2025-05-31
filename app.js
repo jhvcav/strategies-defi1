@@ -3,6 +3,16 @@ console.log('🚀 DÉBUT app.js');
 try {
     console.log('Définition de la classe YieldMaxApp...');
 
+// ===== CONTRACT CONFIGURATION =====
+const POLYGON_CONTRACTS = {
+    STRATEGY_UNISWAP_V3: "0x669227b0bB3A6BFC717fe8bEA17EEF3cB37f5eBC",
+    // Pour plus tard :
+    // STRATEGY_AAVE: "0x...",  
+    // STRATEGY_FLASH: "0x..."
+};
+
+const POLYGON_CHAIN_ID = 137;
+
 // ===== GLOBAL STATE MANAGEMENT =====
 class YieldMaxApp {
     constructor() {
@@ -21,16 +31,6 @@ class YieldMaxApp {
         this.updateUI();
         this.startRealTimeUpdates();
     }
-
-    // ===== CONTRACT CONFIGURATION =====
-    const POLYGON_CONTRACTS = {
-        STRATEGY_UNISWAP_V3: "0x669227b0bB3A6BFC717fe8bEA17EEF3cB37f5eBC",
-    // Pour plus tard :
-    // STRATEGY_AAVE: "0x...",  
-    // STRATEGY_FLASH: "0x..."
-    };
-
-    const POLYGON_CHAIN_ID = 137;
 
     // ===== WALLET CONNECTION =====
     async connectWallet() {
