@@ -1,3 +1,8 @@
+console.log('🚀 DÉBUT app.js');
+
+try {
+    console.log('Définition de la classe YieldMaxApp...');
+
 // ===== GLOBAL STATE MANAGEMENT =====
 class YieldMaxApp {
     constructor() {
@@ -684,7 +689,13 @@ function copyToClipboard(text) {
     }).catch(() => {
         app.showNotification('Erreur lors de la copie', 'error');
     });
+}console.log('✅ Classe YieldMaxApp définie');
+} catch (error) {
+    console.error('❌ Erreur dans app.js:', error);
 }
+
+console.log('🏁 FIN app.js');
+
 
 // ===== ERROR HANDLING =====
 window.addEventListener('error', (event) => {
