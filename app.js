@@ -164,13 +164,6 @@ class YieldMaxApp {
         // Initialiser ethers
         const provider = new ethers.BrowserProvider(window.ethereum);
         const signer = await provider.getSigner();
-        
-        // Créer l'instance du contrat
-        const contract = new ethers.Contract(
-            POLYGON_CONTRACTS.STRATEGY_UNISWAP_V3,
-            STRATEGY_ABI,
-            signer
-        );
 
         // Paramètres pour la transaction
         const amount0Desired = ethers.parseEther(ethAmount);
