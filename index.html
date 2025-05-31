@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YieldMax - DeFi Farming Platform</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo">
+                    <i class="fas fa-seedling"></i>
+                    <span>YieldMax</span>
+                </div>
+                <nav class="nav">
+                    <a href="#dashboard" class="nav-link active">Dashboard</a>
+                    <a href="#strategies" class="nav-link">Stratégies</a>
+                    <a href="#portfolio" class="nav-link">Portfolio</a>
+                    <a href="#analytics" class="nav-link">Analytics</a>
+                </nav>
+                <div class="wallet-section">
+                    <div class="network-selector">
+                        <select id="networkSelect">
+                            <option value="ethereum">Ethereum</option>
+                            <option value="polygon">Polygon</option>
+                            <option value="arbitrum">Arbitrum</option>
+                            <option value="bsc">BSC</option>
+                        </select>
+                    </div>
+                    <button class="wallet-btn" id="connectWallet">
+                        <i class="fas fa-wallet"></i>
+                        Connecter Wallet
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Dashboard Overview -->
+            <section class="dashboard-overview">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3>Portfolio Total</h3>
+                            <p class="stat-value">$0.00</p>
+                            <span class="stat-change positive">+0.00%</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-coins"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3>Rendement 24h</h3>
+                            <p class="stat-value">$0.00</p>
+                            <span class="stat-change positive">+0.00%</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-percentage"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3>APR Moyen</h3>
+                            <p class="stat-value">0.00%</p>
+                            <span class="stat-trend">Toutes stratégies</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-shield-alt"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3>Positions Actives</h3>
+                            <p class="stat-value">0</p>
+                            <span class="stat-trend">Stratégies déployées</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Strategy Selection -->
+            <section class="strategy-section">
+                <h2 class="section-title">Stratégies de Yield Farming</h2>
+                <div class="strategy-tabs">
+                    <button class="tab-btn active" data-strategy="uniswap">
+                        <i class="fas fa-exchange-alt"></i>
+                        Uniswap V3 LP
+                    </button>
+                    <button class="tab-btn" data-strategy="aave">
+                        <i class="fas fa-university"></i>
+                        Aave Lending
+                    </button>
+                    <button class="tab-btn" data-strategy="flashloan">
+                        <i class="fas fa-bolt"></i>
+                        Flash Loans
+                    </button>
+                </div>
+
+                <!-- Uniswap V3 Strategy -->
+                <div class="strategy-content active" id="uniswap-strategy">
+                    <div class="strategy-header">
+                        <h3>Uniswap V3 - Concentrated Liquidity</h3>
+                        <div class="strategy-stats">
+                            <span class="apr-badge">APR: 45-180%</span>
+                            <span class="risk-badge risk-medium">Risque: Moyen</span>
+                        </div>
+                    </div>
+                    
+                    <div class="strategy-form">
+                        <div class="form-row">
+                            <div class="input-group">
+                                <label>Pool de Liquidité</label>
+                                <select id="poolSelect">
+                                    <option value="eth-usdc">ETH/USDC (0.3%)</option>
+                                    <option value="eth-usdt">ETH/USDT (0.3%)</option>
+                                    <option value="btc-eth">WBTC/ETH (0.3%)</option>
+                                    <option value="matic-eth">MATIC/ETH (0.3%)</option>
+                                </select>
+                            </div>
+                            <div class="input-group">
+                                <label>Montant ETH</label>
+                                <input type="number" id="ethAmount" placeholder="0.0" step="0.001">
+                                <span class="input-suffix">ETH</span>
+                            </div>
+                        </div>
+                        
+                        <div class="range-selector">
+                            <label>Range de Prix (±%)</label>
+                            <div class="range-options">
+                                <button class="range-btn" data-range="5">±5%</button>
+                                <button class="range-btn active" data-range="10">±10%</button>
+                                <button class="range-btn" data-range="20">±20%</button>
+                                <button class="range-btn" data-range="custom">Custom</button>
+                            </div>
+                        </div>
+
+                        <div class="yield-preview">
+                            <h4>Prévision de Rendement</h4>
+                            <div class="yield-metrics">
+                                <div class="metric">
+                                    <span>APR Estimé:</span>
+                                    <strong class="highlight">78.5%</strong>
+                                </div>
+                                <div class="metric">
+                                    <span>Fees Journaliers:</span>
+                                    <strong>$12.35</strong>
+                                </div>
+                                <div class="metric">
+                                    <span>Impermanent Loss:</span>
+                                    <strong class="warning">-2.1%</strong>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button class="strategy-btn primary">
+                            <i class="fas fa-rocket"></i>
+                            Déployer Stratégie UniV3
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Aave Strategy -->
+                <div class="strategy-content" id="aave-strategy">
+                    <div class="strategy-header">
+                        <h3>Aave - Leveraged Lending</h3>
+                        <div class="strategy-stats">
+                            <span class="apr-badge">APR: 25-85%</span>
+                            <span class="risk-badge risk-low">Risque: Faible</span>
+                        </div>
+                    </div>
+                    
+                    <div class="strategy-form">
+                        <div class="form-row">
+                            <div class="input-group">
+                                <label>Asset de Collatéral</label>
+                                <select id="collateralSelect">
+                                    <option value="eth">ETH</option>
+                                    <option value="wbtc">WBTC</option>
+                                    <option value="matic">MATIC</option>
+                                    <option value="link">LINK</option>
+                                </select>
+                            </div>
+                            <div class="input-group">
+                                <label>Montant</label>
+                                <input type="number" id="collateralAmount" placeholder="0.0" step="0.001">
+                                <span class="input-suffix">ETH</span>
+                            </div>
+                        </div>
+
+                        <div class="leverage-selector">
+                            <label>Niveau de Leverage</label>
+                            <div class="leverage-slider">
+                                <input type="range" id="leverageRange" min="1" max="4" step="0.1" value="2">
+                                <div class="leverage-display">
+                                    <span>Leverage: </span>
+                                    <strong id="leverageValue">2.0x</strong>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="yield-preview">
+                            <h4>Prévision de Rendement</h4>
+                            <div class="yield-metrics">
+                                <div class="metric">
+                                    <span>APR Net:</span>
+                                    <strong class="highlight">42.3%</strong>
+                                </div>
+                                <div class="metric">
+                                    <span>Health Factor:</span>
+                                    <strong class="safe">2.85</strong>
+                                </div>
+                                <div class="metric">
+                                    <span>Liquidation Prix:</span>
+                                    <strong class="warning">$1,850</strong>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button class="strategy-btn primary">
+                            <i class="fas fa-university"></i>
+                            Déployer Stratégie Aave
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Flash Loan Strategy -->
+                <div class="strategy-content" id="flashloan-strategy">
+                    <div class="strategy-header">
+                        <h3>Flash Loans - Arbitrage</h3>
+                        <div class="strategy-stats">
+                            <span class="apr-badge">APR: Variable</span>
+                            <span class="risk-badge risk-high">Risque: Élevé</span>
+                        </div>
+                    </div>
+                    
+                    <div class="strategy-form">
+                        <div class="arbitrage-scanner">
+                            <h4>Opportunités d'Arbitrage Détectées</h4>
+                            <div class="opportunity-list">
+                                <div class="opportunity-item">
+                                    <div class="opportunity-info">
+                                        <span class="pair">ETH/USDC</span>
+                                        <span class="exchanges">Uniswap → SushiSwap</span>
+                                    </div>
+                                    <div class="opportunity-profit">
+                                        <span class="profit-amount">+$45.20</span>
+                                        <span class="profit-percentage">0.23%</span>
+                                    </div>
+                                    <button class="execute-btn">Exécuter</button>
+                                </div>
+                                <div class="opportunity-item">
+                                    <div class="opportunity-info">
+                                        <span class="pair">WBTC/ETH</span>
+                                        <span class="exchanges">Curve → Balancer</span>
+                                    </div>
+                                    <div class="opportunity-profit">
+                                        <span class="profit-amount">+$78.50</span>
+                                        <span class="profit-percentage">0.31%</span>
+                                    </div>
+                                    <button class="execute-btn">Exécuter</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flashloan-config">
+                            <label>Montant Flash Loan</label>
+                            <div class="amount-input">
+                                <input type="number" id="flashAmount" placeholder="10000" step="1000">
+                                <select id="flashAsset">
+                                    <option value="usdc">USDC</option>
+                                    <option value="dai">DAI</option>
+                                    <option value="usdt">USDT</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="yield-preview">
+                            <h4>Estimation Flash Loan</h4>
+                            <div class="yield-metrics">
+                                <div class="metric">
+                                    <span>Profit Estimé:</span>
+                                    <strong class="highlight">$123.70</strong>
+                                </div>
+                                <div class="metric">
+                                    <span>Fees Flash Loan:</span>
+                                    <strong>$9.00</strong>
+                                </div>
+                                <div class="metric">
+                                    <span>Gas Estimé:</span>
+                                    <strong class="warning">$25.00</strong>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button class="strategy-btn primary">
+                            <i class="fas fa-bolt"></i>
+                            Exécuter Flash Loan
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Active Positions -->
+            <section class="positions-section">
+                <h2 class="section-title">Positions Actives</h2>
+                <div class="positions-table">
+                    <div class="table-header">
+                        <span>Stratégie</span>
+                        <span>Pool/Asset</span>
+                        <span>Montant</span>
+                        <span>APR</span>
+                        <span>PnL</span>
+                        <span>Actions</span>
+                    </div>
+                    <div class="table-body" id="positionsTableBody">
+                        <div class="empty-state">
+                            <i class="fas fa-seedling"></i>
+                            <p>Aucune position active</p>
+                            <span>Déployez votre première stratégie pour commencer</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h4>YieldMax</h4>
+                    <p>Plateforme DeFi décentralisée pour maximiser vos rendements crypto.</p>
+                </div>
+                <div class="footer-section">
+                    <h4>Liens</h4>
+                    <a href="#docs">Documentation</a>
+                    <a href="#audit">Audits</a>
+                    <a href="#github">GitHub</a>
+                </div>
+                <div class="footer-section">
+                    <h4>Communauté</h4>
+                    <a href="#discord">Discord</a>
+                    <a href="#twitter">Twitter</a>
+                    <a href="#telegram">Telegram</a>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Loading Modal -->
+    <div class="modal" id="loadingModal">
+        <div class="modal-content">
+            <div class="loading-spinner"></div>
+            <h3>Transaction en cours...</h3>
+            <p>Déploiement de votre stratégie sur la blockchain</p>
+            <div class="progress-bar">
+                <div class="progress-fill"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
