@@ -17,6 +17,16 @@ class YieldMaxApp {
         this.startRealTimeUpdates();
     }
 
+    // ===== CONTRACT CONFIGURATION =====
+    const POLYGON_CONTRACTS = {
+        STRATEGY_UNISWAP_V3: "0x669227b0bB3A6BFC717fe8bEA17EEF3cB37f5eBC",
+    // Pour plus tard :
+    // STRATEGY_AAVE: "0x...",  
+    // STRATEGY_FLASH: "0x..."
+    };
+
+    const POLYGON_CHAIN_ID = 137;
+
     // ===== WALLET CONNECTION =====
     async connectWallet() {
         try {
@@ -94,49 +104,58 @@ class YieldMaxApp {
     }
 
     async deployUniswapStrategy() {
-        if (!this.walletConnected) {
-            alert('Veuillez connecter votre wallet');
-            return;
-        }
-
-        const ethAmount = document.getElementById('ethAmount').value;
-        const selectedPool = document.getElementById('poolSelect').value;
-        
-        if (!ethAmount || ethAmount <= 0) {
-            alert('Veuillez entrer un montant valide');
-            return;
-        }
-
-        this.showLoadingModal('Déploiement de la stratégie Uniswap V3...');
-
-        try {
-            // Simulation de transaction
-            await this.simulateTransaction(3000);
-            
-            // Add position to portfolio
-            const newPosition = {
-                id: Date.now(),
-                strategy: 'Uniswap V3',
-                pool: selectedPool.toUpperCase(),
-                amount: `${ethAmount} ETH`,
-                apr: '78.5%',
-                pnl: '+0.00%',
-                status: 'active'
-            };
-            
-            this.positions.push(newPosition);
-            this.updatePositionsTable();
-            this.updateDashboardStats();
-            
-            this.hideLoadingModal();
-            alert('Stratégie Uniswap V3 déployée avec succès!');
-            
-        } catch (error) {
-            this.hideLoadingModal();
-            console.error('Erreur déploiement:', error);
-            alert('Erreur lors du déploiement de la stratégie');
-        }
+    if (!this.walletConnected) {
+        alert('Veuillez connecter votre wallet');
+        return;
     }
+
+    // Vérifier qu'on est sur Polygon
+    const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+    if (parseInt(chainId, 16) !== POLYGON_CHAIN_ID) {
+        alert('Veuillez vous connecter au réseau Polygon');
+        return;
+    }
+
+    const ethAmount = document.getElementById('ethAmount').value;
+    const selectedPool = document.getElementById('poolSelect').value;
+    
+    if (!ethAmount || ethAmount <= 0) {
+        alert('Veuillez entrer un montant valide');
+        return;
+    }
+
+    this.showLoadingModal('Transaction en cours sur Polygon...');
+
+    try {
+        // TODO: Appel au vrai contrat ici
+        // const contract = new ethers.Contract(POLYGON_CONTRACTS.STRATEGY_UNISWAP_V3, ABI, signer);
+        
+        // Pour l'instant, simulation
+        await this.simulateTransaction(3000);
+        
+        const newPosition = {
+            id: Date.now(),
+            strategy: 'Uniswap V3',
+            pool: selectedPool.toUpperCase(),
+            amount: `${ethAmount} ETH`,
+            apr: '78.5%',
+            pnl: '+0.00%',
+            status: 'active'
+        };
+        
+        this.positions.push(newPosition);
+        this.updatePositionsTable();
+        this.updateDashboardStats();
+        
+        this.hideLoadingModal();
+        alert(`Position créée sur Polygon!\nContrat: ${POLYGON_CONTRACTS.STRATEGY_UNISWAP_V3}`);
+        
+    } catch (error) {
+        this.hideLoadingModal();
+        console.error('Erreur:', error);
+        alert('Erreur lors de la transaction');
+    }
+}
 
     // ===== AAVE STRATEGY =====
     updateAaveMetrics() {

@@ -4,9 +4,23 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "deploy:local": "hardhat run scripts/deploy.js --network hardhat",
+    "deploy:goerli": "hardhat run scripts/deploy.js --network goerli --verify",
+    "deploy:mainnet": "hardhat run scripts/deploy.js --network mainnet --verify",
+    "verify": "hardhat verify --network mainnet",
+    "test:integration": "hardhat run scripts/deploy.js --network hardhat --test",
+    "coverage": "hardhat coverage",
+    "gas-report": "REPORT_GAS=true hardhat test"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC"
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^3.0.0",
+    "@nomiclabs/hardhat-etherscan": "^3.1.8",
+    "dotenv": "^16.5.0",
+    "hardhat": "^2.24.1"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^4.9.6"
+  }
 }
