@@ -9,6 +9,22 @@ const POLYGON_CHAIN_ID = 137;
 
 console.log('Définition de la classe YieldMaxApp...');
 
+// ABI simplifié pour les fonctions principales
+const STRATEGY_ABI = [
+    "function createPosition(address token0, address token1, uint24 fee, int24 tickLower, int24 tickUpper, uint256 amount0Desired, uint256 amount1Desired, uint256 amount0Min, uint256 amount1Min) external payable returns (uint256 tokenId)",
+    "function createPositionAuto(address token0, address token1, uint24 fee, uint256 rangePercentage, uint256 amount0Desired, uint256 amount1Desired) external payable returns (uint256 tokenId)",
+    "function getUserPositions(address user) external view returns (tuple(uint256 tokenId, address token0, address token1, uint24 fee, int24 tickLower, int24 tickUpper, uint128 liquidity, uint256 amount0Deposited, uint256 amount1Deposited, uint256 feesCollected0, uint256 feesCollected1, uint256 lastCollectionTime, bool active)[] memory)",
+    "function collectFees(uint256 tokenId) external returns (uint256 amount0, uint256 amount1)",
+    "function closePosition(uint256 tokenId) external"
+];
+
+// Tokens Polygon
+const POLYGON_TOKENS = {
+    WETH: "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619",
+    USDC: "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174",
+    WMATIC: "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270"
+};
+
 // ===== GLOBAL STATE MANAGEMENT =====
 class YieldMaxApp {
     constructor() {
@@ -119,29 +135,90 @@ class YieldMaxApp {
 
     const ethAmount = document.getElementById('ethAmount').value;
     const selectedPool = document.getElementById('poolSelect').value;
+    const selectedRange = document.querySelector('.range-btn.active')?.dataset.range || 10;
     
     if (!ethAmount || ethAmount <= 0) {
         alert('Veuillez entrer un montant valide');
         return;
     }
 
-    this.showLoadingModal('Transaction en cours sur Polygon...');
+    this.showLoadingModal('Création de position sur Polygon...');
 
     try {
-        // TODO: Appel au vrai contrat ici
-        // const contract = new ethers.Contract(POLYGON_CONTRACTS.STRATEGY_UNISWAP_V3, ABI, signer);
+        // Configuration des tokens selon le pool
+        let token0, token1;
+        switch(selectedPool) {
+            case 'eth-usdc':
+                token0 = POLYGON_TOKENS.WETH;
+                token1 = POLYGON_TOKENS.USDC;
+                break;
+            case 'matic-usdc':
+                token0 = POLYGON_TOKENS.WMATIC;
+                token1 = POLYGON_TOKENS.USDC;
+                break;
+            default:
+                token0 = POLYGON_TOKENS.WETH;
+                token1 = POLYGON_TOKENS.USDC;
+        }
+
+        // Initialiser ethers
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        const signer = await provider.getSigner();
         
-        // Pour l'instant, simulation
-        await this.simulateTransaction(3000);
+        // Créer l'instance du contrat
+        const contract = new ethers.Contract(
+            POLYGON_CONTRACTS.STRATEGY_UNISWAP_V3,
+            STRATEGY_ABI,
+            signer
+        );
+
+        // Paramètres pour la transaction
+        const amount0Desired = ethers.parseEther(ethAmount);
+        const amount1Desired = ethers.parseUnits("0", 6); // Pas d'USDC pour ETH only
+        const rangePercentage = parseInt(selectedRange) * 100; // 10% = 1000
+
+        console.log('Paramètres transaction:', {
+            token0,
+            token1,
+            fee: 3000,
+            rangePercentage,
+            amount0Desired: amount0Desired.toString(),
+            amount1Desired: amount1Desired.toString()
+        });
+
+        // Appel au contrat avec ETH
+        const tx = await contract.createPositionAuto(
+            token0,
+            token1,
+            3000, // 0.3% fee
+            rangePercentage,
+            amount0Desired,
+            amount1Desired,
+            {
+                value: amount0Desired, // Envoyer ETH
+                gasLimit: 500000 // Limite de gas
+            }
+        );
+
+        console.log('Transaction envoyée:', tx.hash);
         
+        // Attendre la confirmation
+        const receipt = await tx.wait();
+        console.log('Transaction confirmée:', receipt);
+
+        // Récupérer le tokenId du log
+        const tokenId = receipt.logs[0]?.topics[1]; // Simplifié
+        
+        // Ajouter la position à l'UI
         const newPosition = {
             id: Date.now(),
-            strategy: 'Uniswap V3',
+            strategy: 'Uniswap V3 (Real)',
             pool: selectedPool.toUpperCase(),
             amount: `${ethAmount} ETH`,
             apr: '78.5%',
             pnl: '+0.00%',
-            status: 'active'
+            status: 'active',
+            tokenId: tokenId
         };
         
         this.positions.push(newPosition);
@@ -149,12 +226,25 @@ class YieldMaxApp {
         this.updateDashboardStats();
         
         this.hideLoadingModal();
-        alert(`Position créée sur Polygon!\nContrat: ${POLYGON_CONTRACTS.STRATEGY_UNISWAP_V3}`);
+        
+        alert(`✅ Position créée avec succès!
+        
+📄 Transaction: ${receipt.hash}
+🏷️ Token ID: ${tokenId}
+💰 Montant: ${ethAmount} ETH
+🔗 Voir sur PolygonScan: https://polygonscan.com/tx/${receipt.hash}`);
         
     } catch (error) {
         this.hideLoadingModal();
-        console.error('Erreur:', error);
-        alert('Erreur lors de la transaction');
+        console.error('Erreur transaction:', error);
+        
+        if (error.code === 4001) {
+            alert('Transaction annulée par l\'utilisateur');
+        } else if (error.code === -32603) {
+            alert('Erreur de gas - Augmentez la limite ou vérifiez vos fonds');
+        } else {
+            alert(`Erreur: ${error.message}`);
+        }
     }
 }
 
@@ -315,10 +405,39 @@ class YieldMaxApp {
         }
     }
 
-    loadUserPositions() {
-        // Simulate loading user positions from blockchain
-        console.log('Loading user positions...');
+    async loadUserPositions() {
+    if (!this.walletConnected) return;
+
+    try {
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        const contract = new ethers.Contract(
+            POLYGON_CONTRACTS.STRATEGY_UNISWAP_V3,
+            STRATEGY_ABI,
+            provider
+        );
+
+        const positions = await contract.getUserPositions(this.currentAccount);
+        console.log('Positions du contrat:', positions);
+
+        // Convertir en format UI
+        this.positions = positions.filter(pos => pos.active).map(pos => ({
+            id: pos.tokenId.toString(),
+            strategy: 'Uniswap V3',
+            pool: 'ETH/USDC',
+            amount: `${ethers.formatEther(pos.amount0Deposited)} ETH`,
+            apr: '78.5%',
+            pnl: '+0.00%',
+            status: 'active',
+            tokenId: pos.tokenId.toString()
+        }));
+
+        this.updatePositionsTable();
+        this.updateDashboardStats();
+        
+    } catch (error) {
+        console.error('Erreur lors du chargement des positions:', error);
     }
+}
 
     startRealTimeUpdates() {
         // Update metrics every 30 seconds
