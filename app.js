@@ -238,93 +238,171 @@ class YieldMaxApp {
         return;
     }
 
-    this.showLoadingModal('Création de position sur Polygon...');
+    // Afficher le modal de chargement pendant la vérification
+    this.showLoadingModal('Vérification de votre solde...');
 
-    // Variables pour la transaction
-    let token0, token1, poolFee;
-    
-    // Configuration des tokens selon le pool
-    switch(selectedPool) {
-        case 'weth-usdc':
-            token0 = POLYGON_TOKENS.USDC;  // USDC est token0
-            token1 = POLYGON_TOKENS.WETH;  // WETH est token1
-            poolFee = 500;  // 0.05% pour WETH/USDC
-            break;
-            
-        case 'matic-usdc':
-            token0 = POLYGON_TOKENS.USDC;
-            token1 = POLYGON_TOKENS.WMATIC;
-            poolFee = 500;  // 0.05%
-            break;
-            
-        case 'wbtc-eth':
-            token0 = POLYGON_TOKENS.WBTC || "0x1BFD67037B42Cf73acF2047067bd4F2C47D9BfD6";
-            token1 = POLYGON_TOKENS.WETH;
-            poolFee = 3000; // 0.3%
-            break;
-            
-        case 'matic-eth':
-            token0 = POLYGON_TOKENS.WMATIC;
-            token1 = POLYGON_TOKENS.WETH;
-            poolFee = 3000; // 0.3%
-            break;
-            
-        default:
-            token0 = POLYGON_TOKENS.USDC;
-            token1 = POLYGON_TOKENS.WETH;
-            poolFee = 500; // 0.05% par défaut
-    }
-    
     try {
-        // NOUVELLE APPROCHE: Intégration directe avec Uniswap V3
+        // Configuration des tokens selon le pool sélectionné
+        let token0, token1, poolFee;
+        let needsToken0 = false; // Si true, on a besoin du token0 aussi
         
-        // Adresse du NonfungiblePositionManager d'Uniswap V3 sur Polygon
+        switch(selectedPool) {
+            case 'weth-usdc':
+                token0 = POLYGON_TOKENS.USDC;  // USDC est token0 (adresse plus petite)
+                token1 = POLYGON_TOKENS.WETH;  // WETH est token1
+                poolFee = 500;  // 0.05% pour USDC/WETH
+                needsToken0 = true; // Besoin d'USDC aussi
+                break;
+                
+            case 'matic-usdc':
+                token0 = POLYGON_TOKENS.USDC;  // USDC est token0
+                token1 = POLYGON_TOKENS.WMATIC; // WMATIC est token1
+                poolFee = 500;  // 0.05%
+                needsToken0 = true; // Besoin d'USDC aussi
+                break;
+                
+            case 'wbtc-eth':
+                token0 = POLYGON_TOKENS.WBTC || "0x1BFD67037B42Cf73acF2047067bd4F2C47D9BfD6";
+                token1 = POLYGON_TOKENS.WETH;
+                poolFee = 3000; // 0.3%
+                break;
+                
+            case 'matic-eth':
+                token0 = POLYGON_TOKENS.WMATIC;
+                token1 = POLYGON_TOKENS.WETH;
+                poolFee = 3000; // 0.3%
+                break;
+                
+            default:
+                token0 = POLYGON_TOKENS.USDC;
+                token1 = POLYGON_TOKENS.WETH;
+                poolFee = 500; // 0.05% par défaut
+                needsToken0 = true;
+        }
+
+        // ABI minimal pour ERC20 (pour vérifier les soldes)
+        const ERC20_ABI = [
+            "function balanceOf(address account) external view returns (uint256)",
+            "function decimals() external view returns (uint8)",
+            "function approve(address spender, uint256 amount) external returns (bool)"
+        ];
+
+        // Initialiser ethers
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        const signer = await provider.getSigner();
+        const userAddress = await signer.getAddress();
+        
+        // Vérifier le solde ETH natif
+        const ethBalance = await provider.getBalance(userAddress);
+        const ethValue = ethers.parseEther(ethAmount);
+        
+        console.log('Solde ETH:', ethers.formatEther(ethBalance), 'ETH');
+        console.log('Montant requis:', ethAmount, 'ETH');
+        
+        // Vérifier si le solde ETH est suffisant
+        if (ethBalance < ethValue) {
+            this.hideLoadingModal();
+            alert(`Solde ETH insuffisant! Vous avez ${ethers.formatEther(ethBalance)} ETH, mais ${ethAmount} ETH sont nécessaires.`);
+            return;
+        }
+        
+        // Si nous avons besoin du token0 (ex: USDC pour USDC/WETH)
+        let token0Balance, token0Decimals, usdcValue;
+        
+        if (needsToken0) {
+            // Conversion du montant ETH en token0 équivalent (ex: USDC)
+            // Approximation: 1 ETH = 2500 USDC (à ajuster selon le prix actuel)
+            const token0Equivalent = parseFloat(ethAmount) * 2500;
+            
+            // Vérifier le solde du token0 (ex: USDC)
+            const token0Contract = new ethers.Contract(
+                token0,
+                ERC20_ABI,
+                provider
+            );
+            
+            token0Decimals = await token0Contract.decimals();
+            token0Balance = await token0Contract.balanceOf(userAddress);
+            usdcValue = ethers.parseUnits(token0Equivalent.toString(), token0Decimals);
+            
+            console.log(`Solde ${selectedPool.split('-')[1].toUpperCase()}:`, 
+                        ethers.formatUnits(token0Balance, token0Decimals));
+            console.log(`Montant ${selectedPool.split('-')[1].toUpperCase()} requis:`, 
+                        token0Equivalent);
+            
+            // Vérifier si le solde token0 est suffisant
+            if (token0Balance < usdcValue) {
+                this.hideLoadingModal();
+                alert(`Solde ${selectedPool.split('-')[1].toUpperCase()} insuffisant! Vous avez ${ethers.formatUnits(token0Balance, token0Decimals)} ${selectedPool.split('-')[1].toUpperCase()}, mais environ ${token0Equivalent} ${selectedPool.split('-')[1].toUpperCase()} sont nécessaires.`);
+                return;
+            }
+        }
+        
+        // Si nous arrivons ici, l'utilisateur a suffisamment de fonds
+        this.showLoadingModal(`Solde suffisant! Création de position ${selectedPool.toUpperCase()}...`);
+        
+        // Adresse du NonfungiblePositionManager de Uniswap V3 sur Polygon
         const NFT_POSITION_MANAGER = "0xC36442b4a4522E871399CD717aBDD847Ab11FE88";
         
         // ABI minimal pour NonfungiblePositionManager
         const NFT_POSITION_MANAGER_ABI = [
-            "function mint(tuple(address token0, address token1, uint24 fee, int24 tickLower, int24 tickUpper, uint256 amount0Desired, uint256 amount1Desired, uint256 amount0Min, uint256 amount1Min, address recipient, uint256 deadline)) external payable returns (uint256 tokenId, uint128 liquidity, uint256 amount0, uint256 amount1)"
+            "function mint(tuple(address token0, address token1, uint24 fee, int24 tickLower, int24 tickUpper, uint256 amount0Desired, uint256 amount1Desired, uint256 amount0Min, uint256 amount1Min, address recipient, uint256 deadline) params) external payable returns (uint256 tokenId, uint128 liquidity, uint256 amount0, uint256 amount1)"
         ];
         
-        // Initialiser ethers
-        const provider = new ethers.BrowserProvider(window.ethereum);
-        const signer = await provider.getSigner();
+        // Définir la plage de prix (± selectedRange%)
+        // Le prix actuel est d'environ 1 ETH = 2500 USDC
+        // Donc en termes de ticks, c'est autour de -76000 à -75000
+        const currentTickEstimate = -75500;
+        const rangeTicks = parseInt(selectedRange) * 100; // 10% = 1000 ticks environ
         
-        // Paramètres pour la transaction
-        const rangePercent = parseInt(selectedRange) / 100; // 10 -> 0.1 (10%)
-        const ethValue = ethers.parseEther(ethAmount);
+        const tickLower = currentTickEstimate - rangeTicks/2;
+        const tickUpper = currentTickEstimate + rangeTicks/2;
         
-        // Obtenir le prix actuel approximatif (cette partie pourrait être améliorée)
-        const currentPrice = 1.0; // Pour USDC/WETH, 1 USDC ≈ 0.0005 ETH (environ)
-        
-        // Calculer les limites de la plage de prix
-        const lowerPrice = currentPrice * (1 - rangePercent);
-        const upperPrice = currentPrice * (1 + rangePercent);
-        
-        // Convertir les prix en ticks (formule de Uniswap V3)
-        const tickSpacing = poolFee === 500 ? 10 : 60; // L'espacement des ticks dépend du fee tier
-        const lowerTick = Math.floor(Math.log(lowerPrice) / Math.log(1.0001) / tickSpacing) * tickSpacing;
-        const upperTick = Math.ceil(Math.log(upperPrice) / Math.log(1.0001) / tickSpacing) * tickSpacing;
-        
-        // Pour WETH/USDC, ETH est toujours token1 (amount1Desired)
-        const amount0Desired = ethers.parseUnits("0", token0 === POLYGON_TOKENS.USDC ? 6 : 18);
-        const amount1Desired = ethValue;
+        // Arrondir les ticks à l'espacement des ticks (10 pour fee tier 0.05%)
+        const tickSpacing = poolFee === 500 ? 10 : 60;
+        const roundedTickLower = Math.floor(tickLower / tickSpacing) * tickSpacing;
+        const roundedTickUpper = Math.ceil(tickUpper / tickSpacing) * tickSpacing;
         
         // Deadline: 20 minutes à partir de maintenant
         const deadline = Math.floor(Date.now() / 1000) + 1200;
         
-        console.log('Paramètres Uniswap V3 direct:', {
-            token0,
-            token1,
-            fee: poolFee,
-            tickLower: lowerTick,
-            tickUpper: upperTick,
-            amount0Desired: amount0Desired.toString(),
-            amount1Desired: amount1Desired.toString(),
-            ethValue: ethValue.toString()
-        });
+        // Si nous avons besoin d'approuver le token0 (ex: USDC)
+        if (needsToken0) {
+            console.log(`Vérification de l'approbation ${selectedPool.split('-')[1].toUpperCase()}...`);
+            
+            // Créer une instance du contrat token0
+            const token0Contract = new ethers.Contract(
+                token0,
+                ERC20_ABI,
+                signer
+            );
+            
+            // Vérifier l'approbation existante
+            const currentAllowance = await token0Contract.allowance(userAddress, NFT_POSITION_MANAGER);
+            
+            // Si l'approbation est insuffisante, demander une nouvelle approbation
+            if (currentAllowance < usdcValue) {
+                console.log(`Approbation ${selectedPool.split('-')[1].toUpperCase()} requise...`);
+                
+                // Approuver un montant suffisamment grand pour ne pas avoir à réapprouver souvent
+                const approveTx = await token0Contract.approve(
+                    NFT_POSITION_MANAGER,
+                    ethers.parseUnits("1000000", token0Decimals)
+                );
+                
+                console.log('Transaction d\'approbation envoyée:', approveTx.hash);
+                
+                // Attendre la confirmation
+                const approveReceipt = await approveTx.wait();
+                console.log('Approbation confirmée:', approveReceipt);
+            } else {
+                console.log('Approbation existante suffisante:', currentAllowance.toString());
+            }
+        }
         
-        // Créer l'instance du contrat NonfungiblePositionManager
+        // ===== CRÉATION DE LA POSITION =====
+        
+        // Créer une instance du contrat NonfungiblePositionManager
         const positionManager = new ethers.Contract(
             NFT_POSITION_MANAGER,
             NFT_POSITION_MANAGER_ABI,
@@ -333,27 +411,37 @@ class YieldMaxApp {
         
         // Paramètres pour mint
         const params = {
-            token0: token0,
-            token1: token1,
+            token0,
+            token1,
             fee: poolFee,
-            tickLower: lowerTick,
-            tickUpper: upperTick,
-            amount0Desired: amount0Desired,
-            amount1Desired: amount1Desired,
-            amount0Min: 0,
-            amount1Min: 0,
-            recipient: await signer.getAddress(),
-            deadline: deadline
+            tickLower: roundedTickLower,
+            tickUpper: roundedTickUpper,
+            amount0Desired: needsToken0 ? usdcValue : 0,  // Token0 (ex: USDC)
+            amount1Desired: ethValue,                     // Token1 (ex: WETH)
+            amount0Min: 0,                                // Pas de slippage minimum pour simplifier
+            amount1Min: 0,                                // Pas de slippage minimum pour simplifier
+            recipient: userAddress,
+            deadline
         };
         
-        console.log('Envoi de la transaction directe à Uniswap V3...');
+        console.log('Paramètres de création de position:', {
+            token0,
+            token1,
+            fee: poolFee,
+            tickLower: roundedTickLower,
+            tickUpper: roundedTickUpper,
+            amount0Desired: needsToken0 ? usdcValue.toString() : "0",
+            amount1Desired: ethValue.toString()
+        });
         
         // Appeler la fonction mint de NonfungiblePositionManager
+        console.log('Envoi de la transaction de création de position...');
+        
         const tx = await positionManager.mint(
             params,
             {
-                value: ethValue, // Envoyer ETH
-                gasLimit: 3000000 // Limite de gas
+                value: ethValue, // Envoyer ETH (sera converti en WETH)
+                gasLimit: 5000000 // Limite de gas augmentée
             }
         );
         
@@ -363,17 +451,25 @@ class YieldMaxApp {
         const receipt = await tx.wait();
         console.log('Transaction confirmée:', receipt);
         
-        // Analyser les événements pour récupérer le tokenId
+        // Récupérer le tokenId
         let tokenId = "N/A";
         // TODO: Extraire le tokenId des logs si nécessaire
         
         // Ajouter la position à l'UI
+        let positionDescription;
+        if (needsToken0) {
+            const token0Equivalent = parseFloat(ethAmount) * 2500;
+            positionDescription = `${ethAmount} ETH + ${token0Equivalent} ${selectedPool.split('-')[1].toUpperCase()}`;
+        } else {
+            positionDescription = `${ethAmount} ETH`;
+        }
+        
         const newPosition = {
             id: Date.now(),
-            strategy: 'Uniswap V3 Direct',
+            strategy: 'Uniswap V3',
             pool: selectedPool.toUpperCase(),
-            amount: `${ethAmount} ETH`,
-            apr: '78.5%',
+            amount: positionDescription,
+            apr: '45.0%',
             pnl: '+0.00%',
             status: 'active',
             tokenId: tokenId
@@ -388,8 +484,7 @@ class YieldMaxApp {
         alert(`✅ Position créée avec succès!
         
 📄 Transaction: ${tx.hash}
-🏷️ Token ID: ${tokenId}
-💰 Montant: ${ethAmount} ETH
+💰 Montant: ${positionDescription}
 🔗 Voir sur PolygonScan: https://polygonscan.com/tx/${tx.hash}`);
         
     } catch (error) {
@@ -409,10 +504,9 @@ class YieldMaxApp {
             errorMessage = `Erreur: ${error.message}`;
             
             if (error.message.includes('execution reverted')) {
-                errorMessage = `Erreur: La transaction a échoué. Raisons possibles:
-1. Le pool ${selectedPool.toUpperCase()} n'existe peut-être pas avec ce fee tier (${poolFee/10000}%)
-2. Le montant ETH (${ethAmount}) est trop petit pour créer une position viable
-3. La plage de prix pourrait être invalide`;
+                errorMessage = `Erreur: La transaction a échoué. Le pool sélectionné n'existe peut-être pas avec ce fee tier ou les paramètres sont incorrects.`;
+            } else if (error.message.includes('insufficient funds')) {
+                errorMessage = 'Fonds insuffisants pour cette transaction. Vérifiez votre solde ETH et USDC.';
             }
         }
         
