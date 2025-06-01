@@ -6,6 +6,100 @@
     <title>YieldMax - DeFi Farming Platform</title>
     <link rel="stylesheet" href="styles.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        /* Styles pour l'affichage des soldes */
+        .balance-display {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin: 12px 0;
+            font-size: 14px;
+        }
+
+        .balance-label {
+            color: #6c757d;
+            font-weight: 500;
+        }
+
+        .balance-value {
+            color: #28a745;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+
+        .balance-value.balance-zero {
+            color: #dc3545;
+        }
+
+        .balance-type {
+            color: #6c757d;
+            font-size: 12px;
+            margin-left: 8px;
+        }
+
+        .balance-warning {
+            color: #fd7e14;
+            font-size: 12px;
+            margin-left: 8px;
+        }
+
+        .balance-error {
+            background: #f8d7da;
+            border: 1px solid #f1aeb5;
+            color: #721c24;
+            border-radius: 6px;
+            padding: 10px;
+            margin: 10px 0;
+            display: none;
+            font-size: 14px;
+        }
+
+        .strategy-btn.disabled {
+            background: #6c757d !important;
+            cursor: not-allowed !important;
+            opacity: 0.6;
+        }
+
+        .strategy-btn.disabled:hover {
+            background: #6c757d !important;
+            transform: none !important;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #495057;
+        }
+
+        .input-with-balance {
+            position: relative;
+        }
+
+        .max-button {
+            position: absolute;
+            right: 50px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .max-button:hover {
+            background: #0056b3;
+        }
+    </style>
 </head>
 <body>
     <div class="app-container">
@@ -176,93 +270,108 @@
                 </div>
 
                 <!-- Aave Strategy -->
-<div class="strategy-content" id="aave-strategy">
-    <div class="strategy-header">
-        <h3>Aave - Lending Simple</h3>
-        <div class="strategy-stats">
-            <span class="apr-badge">APR: 3-8%</span>
-            <span class="risk-badge risk-low">Risque: Très Faible</span>
-        </div>
-    </div>
-    
-    <div class="strategy-form">
-        <div class="form-row">
-            <div class="input-group">
-                <label>Asset à Déposer</label>
-                <select id="aaveAssetSelect">
-                    <option value="weth">WETH (Wrapped Ethereum)</option>
-                    <option value="usdc">USDC (USD Coin)</option>
-                    <option value="wmatic">WMATIC (Wrapped Polygon)</option>
-                    <option value="wbtc">WBTC (Wrapped Bitcoin)</option>
-                </select>
-            </div>
-            <div class="input-group">
-                <label>Montant à Déposer</label>
-                <input type="number" id="aaveAmount" placeholder="0.0" step="0.001">
-                <span class="input-suffix" id="aaveAssetSymbol">WETH</span>
-            </div>
-        </div>
+                <div class="strategy-content" id="aave-strategy">
+                    <div class="strategy-header">
+                        <h3>Aave - Lending Simple</h3>
+                        <div class="strategy-stats">
+                            <span class="apr-badge">APR: 3-8%</span>
+                            <span class="risk-badge risk-low">Risque: Très Faible</span>
+                        </div>
+                    </div>
+                    
+                    <div class="strategy-form">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="aaveAssetSelect">Asset à Déposer</label>
+                                <select id="aaveAssetSelect">
+                                    <option value="weth">WETH (Wrapped Ethereum)</option>
+                                    <option value="usdc">USDC (USD Coin)</option>
+                                    <option value="wmatic">WMATIC (Wrapped Polygon)</option>
+                                    <option value="wbtc">WBTC (Wrapped Bitcoin)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="aaveAmount">Montant à Déposer</label>
+                                <div class="input-with-balance">
+                                    <input type="number" id="aaveAmount" placeholder="0.0" step="0.001">
+                                    <button type="button" class="max-button" onclick="app.setMaxAmount()">MAX</button>
+                                    <span class="input-suffix" id="aaveAssetSymbol">WETH</span>
+                                </div>
+                                
+                                <!-- Affichage du solde disponible -->
+                                <div class="balance-display" id="aaveBalanceDisplay">
+                                    <span class="balance-label">Solde disponible:</span>
+                                    <span class="balance-value">-- --</span>
+                                </div>
+                                
+                                <!-- Message d'erreur pour solde insuffisant -->
+                                <div class="balance-error" id="aaveBalanceError">
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                    Solde insuffisant
+                                </div>
+                            </div>
+                        </div>
 
-        <div class="lending-info">
-            <h4>Informations de Lending</h4>
-            <div class="info-grid">
-                <div class="info-item">
-                    <span>Type de Stratégie:</span>
-                    <strong>Lending Simple</strong>
-                </div>
-                <div class="info-item">
-                    <span>Token Reçu:</span>
-                    <strong id="aTokenName">aWETH</strong>
-                </div>
-                <div class="info-item">
-                    <span>Intérêts:</span>
-                    <strong>Automatiques</strong>
-                </div>
-                <div class="info-item">
-                    <span>Liquidité:</span>
-                    <strong>Retrait immédiat</strong>
-                </div>
-            </div>
-        </div>
+                        <div class="lending-info">
+                            <h4>Informations de Lending</h4>
+                            <div class="info-grid">
+                                <div class="info-item">
+                                    <span>Type de Stratégie:</span>
+                                    <strong>Lending Simple</strong>
+                                </div>
+                                <div class="info-item">
+                                    <span>Token Reçu:</span>
+                                    <strong id="aTokenName">aWETH</strong>
+                                </div>
+                                <div class="info-item">
+                                    <span>Intérêts:</span>
+                                    <strong>Automatiques</strong>
+                                </div>
+                                <div class="info-item">
+                                    <span>Liquidité:</span>
+                                    <strong>Retrait immédiat</strong>
+                                </div>
+                            </div>
+                        </div>
 
-        <div class="yield-preview">
-            <h4>Prévision de Rendement</h4>
-            <div class="yield-metrics">
-                <div class="metric">
-                    <span>APR Actuel:</span>
-                    <strong class="highlight" id="aaveCurrentAPR">5.2%</strong>
-                </div>
-                <div class="metric">
-                    <span>Gains Journaliers:</span>
-                    <strong id="aaveDailyYield">$0.00</strong>
-                </div>
-                <div class="metric">
-                    <span>Gains Mensuels:</span>
-                    <strong class="safe" id="aaveMonthlyYield">$0.00</strong>
-                </div>
-            </div>
-        </div>
+                        <div class="yield-preview">
+                            <h4>Prévision de Rendement</h4>
+                            <div class="yield-metrics">
+                                <div class="metric">
+                                    <span>APR Actuel:</span>
+                                    <strong class="highlight" id="aaveCurrentAPR">5.2%</strong>
+                                </div>
+                                <div class="metric">
+                                    <span>Gains Journaliers:</span>
+                                    <strong id="aaveDailyYield">$0.00</strong>
+                                </div>
+                                <div class="metric">
+                                    <span>Gains Mensuels:</span>
+                                    <strong class="safe" id="aaveMonthlyYield">$0.00</strong>
+                                </div>
+                            </div>
+                        </div>
 
-        <div class="strategy-actions">
-            <button class="strategy-btn primary" id="aaveDepositBtn">
-                <i class="fas fa-plus-circle"></i>
-                Déposer sur Aave
-            </button>
-            <button class="strategy-btn secondary" id="aaveWithdrawBtn" style="display: none;">
-                <i class="fas fa-minus-circle"></i>
-                Retirer d'Aave
-            </button>
-        </div>
-    </div>
+                        <div class="strategy-actions">
+                            <button class="strategy-btn primary" id="aaveDepositBtn">
+                                <i class="fas fa-plus-circle"></i>
+                                Déposer sur Aave
+                            </button>
+                            <button class="strategy-btn secondary" id="aaveWithdrawBtn" style="display: none;">
+                                <i class="fas fa-minus-circle"></i>
+                                Retirer d'Aave
+                            </button>
+                        </div>
+                    </div>
 
-    <!-- Aave Positions -->
-    <div class="aave-positions" id="aavePositions" style="display: none;">
-        <h4>Vos Positions Aave</h4>
-        <div class="positions-list" id="aavePositionsList">
-            <!-- Les positions seront ajoutées dynamiquement -->
-        </div>
-    </div>
-</div>
+                    <!-- Aave Positions -->
+                    <div class="aave-positions" id="aavePositions" style="display: none;">
+                        <h4>Vos Positions Aave</h4>
+                        <div class="positions-list" id="aavePositionsList">
+                            <!-- Les positions seront ajoutées dynamiquement -->
+                        </div>
+                    </div>
+                </div>
 
                 <!-- Flash Loan Strategy -->
                 <div class="strategy-content" id="flashloan-strategy">
@@ -398,7 +507,45 @@
             </div>
         </div>
     </div>
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.1/ethers.umd.min.js"></script>
+    <script>
+        // Fonction pour définir le montant maximum
+        function setMaxAmount() {
+            if (!app || !app.walletConnected) {
+                alert('Veuillez d\'abord connecter votre wallet');
+                return;
+            }
+            
+            const selectedAsset = document.getElementById('aaveAssetSelect').value;
+            const amountInput = document.getElementById('aaveAmount');
+            
+            let maxBalance = 0;
+            
+            if (selectedAsset === 'usdc') {
+                const usdcInfo = app.getBestUSDCBalance();
+                maxBalance = usdcInfo.balance;
+            } else if (selectedAsset === 'weth') {
+                maxBalance = parseFloat(app.tokenBalances.ETH || "0");
+            } else {
+                maxBalance = parseFloat(app.tokenBalances[selectedAsset.toUpperCase()] || "0");
+            }
+            
+            if (maxBalance > 0) {
+                // Garde une petite marge pour les frais de gas
+                const maxAmount = selectedAsset === 'weth' ? Math.max(0, maxBalance - 0.01) : maxBalance * 0.99;
+                amountInput.value = maxAmount.toFixed(6);
+                
+                // Déclencher la mise à jour des métriques
+                app.updateAaveMetrics();
+            } else {
+                alert(`Aucun solde ${selectedAsset.toUpperCase()} disponible`);
+            }
+        }
+        
+        // Exposer la fonction globalement
+        window.setMaxAmount = setMaxAmount;
+    </script>
     <script src="app.js"></script>
 </body>
 </html>
