@@ -445,8 +445,8 @@ class YieldMaxApp {
         // Calculer des ticks très larges pour minimiser les erreurs
         const tickSpacing = 10;
         const tickRange = 10000; // Très large
-        const tickLower = Math.floor((Number(currentTick) - tickRange) / tickSpacing) * tickSpacing;
-        const tickUpper = Math.ceil((Number(currentTick) + tickRange) / tickSpacing) * tickSpacing;
+        const tickLower = Math.floor(Number(currentTick) / tickSpacing) * tickSpacing - 100;
+        const tickUpper = Math.ceil(Number(currentTick) / tickSpacing) * tickSpacing + 100;
         
         console.log('Pool:', poolAddress);
         console.log('Tick actuel:', currentTick.toString());
