@@ -788,6 +788,7 @@ updateLendingInfo(selectedAsset, currentAPR) {
     if (aTokenElement) aTokenElement.textContent = info.aToken;
     if (interestElement) interestElement.textContent = `${currentAPR}% APR`;
     if (liquidityElement) liquidityElement.textContent = info.liquidity;
+    }
 
     async deployAaveStrategy() {
         if (!this.walletConnected) {
