@@ -242,7 +242,7 @@ class YieldMaxApp {
 
     try {
         // Configuration des tokens selon le pool
-        let token0, token1, feeTier;
+        let token0, token1, feeTier; // Déclaration de feeTier ici
         
         // IMPORTANT: Configurer correctement les tokens et le fee tier
         switch(selectedPool) {
@@ -373,7 +373,9 @@ class YieldMaxApp {
             
             // Message spécifique pour les erreurs de revert
             if (error.message.includes('execution reverted')) {
-                errorMessage = `Erreur: La transaction a échoué. Le pool sélectionné n'existe peut-être pas avec le fee tier spécifié (${feeTier/10000}%)`;
+                // Récupérer feeTier en toute sécurité
+                const currentFeeTier = feeTier || 0;
+                errorMessage = `Erreur: La transaction a échoué. Le pool sélectionné n'existe peut-être pas avec le fee tier spécifié (${currentFeeTier/10000}%)`;
             }
         }
         
