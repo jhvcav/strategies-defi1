@@ -244,28 +244,80 @@ class YieldMaxApp {
         console.log("Résultats complets:", tokenBalances);
         console.log("=== FIN DEBUG DES SOLDES ===");
         
-        // Configuration des tokens selon le pool sélectionné
-        let token0, token1, poolFee;
-        let needsToken0 = false;
+        // === ÉTAPE 2: CONFIGURATION CORRECTE DES TOKENS ===
+        let tokenA, tokenB, poolFee;
+        let needsStablecoin = false;
         
+        // Définir les tokens selon le pool sélectionné
         switch(selectedPool) {
             case 'weth-usdc':
-                token1 = POLYGON_TOKENS.WETH;
-                poolFee = 500;
-                needsToken0 = true;
+                tokenA = POLYGON_TOKENS.USDC;  // 0x3c...
+                tokenB = POLYGON_TOKENS.WETH;  // 0x7c...
+                poolFee = 500;  // 0.05%
+                needsStablecoin = true;
                 break;
                 
             case 'matic-usdc':
-                token1 = POLYGON_TOKENS.WMATIC;
+                tokenA = POLYGON_TOKENS.USDC;
+                tokenB = POLYGON_TOKENS.WMATIC;
                 poolFee = 500;
-                needsToken0 = true;
+                needsStablecoin = true;
                 break;
                 
             default:
-                token1 = POLYGON_TOKENS.WETH;
+                tokenA = POLYGON_TOKENS.USDC;
+                tokenB = POLYGON_TOKENS.WETH;
                 poolFee = 500;
-                needsToken0 = true;
+                needsStablecoin = true;
         }
+        
+        // Ordonner correctement les tokens (token0 < token1)
+        const token0 = tokenA < tokenB ? tokenA : tokenB;
+        const token1 = tokenA < tokenB ? tokenB : tokenA;
+        
+        console.log("=== CONFIGURATION DU POOL ===");
+        console.log("Token0 (adresse plus petite):", token0);
+        console.log("Token1 (adresse plus grande):", token1);
+        console.log("Fee tier:", poolFee);
+        
+        // === ÉTAPE 3: VÉRIFICATION DE L'EXISTENCE DU POOL ===
+        this.showLoadingModal('Vérification de l\'existence du pool...');
+        
+        const FACTORY_ADDRESS = "0x1F98431c8aD98523631AE4a59f267346ea31F984"; // Uniswap V3 Factory
+        const FACTORY_ABI = [
+            "function getPool(address tokenA, address tokenB, uint24 fee) external view returns (address pool)"
+        ];
+        
+        const factory = new ethers.Contract(FACTORY_ADDRESS, FACTORY_ABI, provider);
+        const poolAddress = await factory.getPool(token0, token1, poolFee);
+        
+        if (poolAddress === "0x0000000000000000000000000000000000000000") {
+            this.hideLoadingModal();
+            alert(`❌ Le pool ${selectedPool.toUpperCase()} avec fee tier ${poolFee/10000}% n'existe pas sur Uniswap V3 Polygon.\n\nEssayez avec un autre fee tier (ex: 3000 pour 0.3%)`);
+            return;
+        }
+        
+        console.log("✅ Pool trouvé à l'adresse:", poolAddress);
+        
+        // === ÉTAPE 4: RÉCUPÉRER LES INFORMATIONS DU POOL ===
+        const POOL_ABI = [
+            "function slot0() external view returns (uint160 sqrtPriceX96, int24 tick, uint16 observationIndex, uint16 observationCardinality, uint16 observationCardinalityNext, uint8 feeProtocol, bool unlocked)",
+            "function tickSpacing() external view returns (int24)"
+        ];
+        
+        const poolContract = new ethers.Contract(poolAddress, POOL_ABI, provider);
+        const [slot0, tickSpacing] = await Promise.all([
+            poolContract.slot0(),
+            poolContract.tickSpacing()
+        ]);
+        
+        const currentTick = slot0.tick;
+        const currentPrice = slot0.sqrtPriceX96;
+        
+        console.log("=== INFORMATIONS DU POOL ===");
+        console.log("Tick actuel:", currentTick.toString());
+        console.log("Prix actuel (sqrtPriceX96):", currentPrice.toString());
+        console.log("Espacement des ticks:", tickSpacing.toString());
 
         // ABI minimal pour ERC20
         const ERC20_ABI = [
@@ -289,15 +341,17 @@ class YieldMaxApp {
             return;
         }
         
-        // === ÉTAPE 2: DÉTECTION INTELLIGENTE DE L'USDC ===
-        if (needsToken0) {
-            console.log("=== DÉTECTION DE L'USDC DISPONIBLE ===");
+        // === ÉTAPE 5: DÉTECTION INTELLIGENTE DU STABLECOIN ===
+        let stablecoinContract, stablecoinDecimals, stablecoinBalance, stablecoinSymbol;
+        let stablecoinAmount = ethers.parseUnits("0", 6); // Valeur par défaut
+        
+        if (needsStablecoin) {
+            console.log("=== DÉTECTION DU STABLECOIN DISPONIBLE ===");
             
-            let usdcContract, token0Decimals, token0Balance, usdcSymbol;
-            let usdcFound = false;
+            let stablecoinFound = false;
             
             // Prioriser USDC Native, puis USDC.e
-            const usdcCandidates = [
+            const stablecoinCandidates = [
                 { 
                     name: "USDC Native", 
                     address: POLYGON_TOKENS.USDC,
@@ -310,59 +364,69 @@ class YieldMaxApp {
                 }
             ];
             
-            for (const candidate of usdcCandidates) {
+            for (const candidate of stablecoinCandidates) {
                 if (candidate.result && candidate.result.hasBalance) {
                     console.log(`✅ ${candidate.name} trouvé: ${candidate.result.balance} ${candidate.result.symbol}`);
                     
-                    // Utiliser cette adresse USDC
-                    token0 = candidate.address;
-                    usdcContract = new ethers.Contract(candidate.address, ERC20_ABI, provider);
-                    token0Balance = ethers.parseUnits(candidate.result.balance, candidate.result.decimals);
-                    token0Decimals = candidate.result.decimals;
-                    usdcSymbol = candidate.result.symbol;
-                    usdcFound = true;
+                    // Utiliser cette adresse de stablecoin
+                    const candidateAddress = candidate.address;
+                    stablecoinContract = new ethers.Contract(candidateAddress, ERC20_ABI, provider);
+                    stablecoinBalance = ethers.parseUnits(candidate.result.balance, candidate.result.decimals);
+                    stablecoinDecimals = candidate.result.decimals;
+                    stablecoinSymbol = candidate.result.symbol;
+                    stablecoinFound = true;
+                    
+                    // Mettre à jour token0 si nécessaire
+                    if (candidateAddress < token1) {
+                        // Ce stablecoin devient token0
+                        console.log(`${candidate.name} sera token0`);
+                    } else {
+                        // Ce stablecoin devient token1  
+                        console.log(`${candidate.name} sera token1`);
+                    }
+                    
                     break;
                 }
             }
             
-            if (!usdcFound) {
+            if (!stablecoinFound) {
                 this.hideLoadingModal();
                 alert('❌ Aucun solde USDC trouvé sur votre wallet.\n\nVeuillez vous assurer d\'avoir:\n- USDC Native, ou\n- USDC.e (Bridged)\nsur le réseau Polygon.');
                 return;
             }
             
-            // Calculer le montant USDC nécessaire
+            // Calculer le montant de stablecoin nécessaire
             const ethToUsdRate = 2500; // Prix ETH approximatif
-            const usdcEquivalent = parseFloat(ethAmount) * ethToUsdRate;
-            const usdcValue = ethers.parseUnits(usdcEquivalent.toString(), token0Decimals);
+            const stablecoinEquivalent = parseFloat(ethAmount) * ethToUsdRate;
+            stablecoinAmount = ethers.parseUnits(stablecoinEquivalent.toString(), stablecoinDecimals);
             
-            console.log(`💰 USDC requis: ${usdcEquivalent} ${usdcSymbol}`);
-            console.log(`💳 USDC disponible: ${ethers.formatUnits(token0Balance, token0Decimals)} ${usdcSymbol}`);
+            console.log(`💰 ${stablecoinSymbol} requis: ${stablecoinEquivalent} ${stablecoinSymbol}`);
+            console.log(`💳 ${stablecoinSymbol} disponible: ${ethers.formatUnits(stablecoinBalance, stablecoinDecimals)} ${stablecoinSymbol}`);
             
-            if (token0Balance < usdcValue) {
+            if (stablecoinBalance < stablecoinAmount) {
                 this.hideLoadingModal();
-                const availableUsdc = ethers.formatUnits(token0Balance, token0Decimals);
-                alert(`❌ Solde ${usdcSymbol} insuffisant!\n\nVous avez: ${availableUsdc} ${usdcSymbol}\nRequis: ~${usdcEquivalent} ${usdcSymbol}\n\nPour ${ethAmount} ETH, vous avez besoin d'environ ${usdcEquivalent} ${usdcSymbol} pour équilibrer la position.`);
+                const availableStablecoin = ethers.formatUnits(stablecoinBalance, stablecoinDecimals);
+                alert(`❌ Solde ${stablecoinSymbol} insuffisant!\n\nVous avez: ${availableStablecoin} ${stablecoinSymbol}\nRequis: ~${stablecoinEquivalent} ${stablecoinSymbol}\n\nPour ${ethAmount} ETH, vous avez besoin d'environ ${stablecoinEquivalent} ${stablecoinSymbol} pour équilibrer la position.`);
                 return;
             }
             
-            // === ÉTAPE 3: VÉRIFICATION ET APPROBATION ===
+            // === ÉTAPE 6: VÉRIFICATION ET APPROBATION ===
             console.log("=== VÉRIFICATION DE L'APPROBATION ===");
-            this.showLoadingModal('Vérification des approbations...');
+            this.showLoadingModal(`Vérification des approbations ${stablecoinSymbol}...`);
             
             const NFT_POSITION_MANAGER = "0xC36442b4a4522E871399CD717aBDD847Ab11FE88";
-            const currentAllowance = await usdcContract.allowance(userAddress, NFT_POSITION_MANAGER);
+            const currentAllowance = await stablecoinContract.allowance(userAddress, NFT_POSITION_MANAGER);
             
-            console.log(`Approbation actuelle: ${ethers.formatUnits(currentAllowance, token0Decimals)} ${usdcSymbol}`);
+            console.log(`Approbation actuelle: ${ethers.formatUnits(currentAllowance, stablecoinDecimals)} ${stablecoinSymbol}`);
             
-            if (currentAllowance < usdcValue) {
-                console.log('🔓 Approbation USDC requise...');
-                this.showLoadingModal(`Approbation ${usdcSymbol} en cours...`);
+            if (currentAllowance < stablecoinAmount) {
+                console.log('🔓 Approbation stablecoin requise...');
+                this.showLoadingModal(`Approbation ${stablecoinSymbol} en cours...`);
                 
-                const usdcWithSigner = usdcContract.connect(signer);
-                const approveTx = await usdcWithSigner.approve(
+                const stablecoinWithSigner = stablecoinContract.connect(signer);
+                const approveTx = await stablecoinWithSigner.approve(
                     NFT_POSITION_MANAGER,
-                    ethers.parseUnits("1000000", token0Decimals)
+                    ethers.parseUnits("1000000", stablecoinDecimals)
                 );
                 
                 console.log('📤 Transaction d\'approbation envoyée:', approveTx.hash);
@@ -371,87 +435,115 @@ class YieldMaxApp {
             } else {
                 console.log('✅ Approbation existante suffisante');
             }
-            
-            // === ÉTAPE 4: CRÉATION DE LA POSITION ===
-            this.showLoadingModal('Création de la position Uniswap V3...');
-            
-            const NFT_POSITION_MANAGER_ABI = [
-                "function mint(tuple(address token0, address token1, uint24 fee, int24 tickLower, int24 tickUpper, uint256 amount0Desired, uint256 amount1Desired, uint256 amount0Min, uint256 amount1Min, address recipient, uint256 deadline) params) external payable returns (uint256 tokenId, uint128 liquidity, uint256 amount0, uint256 amount1)"
-            ];
-            
-            // Calculer les ticks pour la plage de prix
-            const currentTickEstimate = -75500; // Pour ETH/USDC
-            const rangeTicks = parseInt(selectedRange) * 100;
-            const tickSpacing = poolFee === 500 ? 10 : 60;
-            
-            const tickLower = Math.floor((currentTickEstimate - rangeTicks/2) / tickSpacing) * tickSpacing;
-            const tickUpper = Math.ceil((currentTickEstimate + rangeTicks/2) / tickSpacing) * tickSpacing;
-            
-            const deadline = Math.floor(Date.now() / 1000) + 1200; // 20 minutes
-            
-            // Paramètres pour la position
-            const positionManager = new ethers.Contract(NFT_POSITION_MANAGER, NFT_POSITION_MANAGER_ABI, signer);
-            
-            const params = {
-                token0,
-                token1,
-                fee: poolFee,
-                tickLower,
-                tickUpper,
-                amount0Desired: usdcValue,
-                amount1Desired: ethValue,
-                amount0Min: 0,
-                amount1Min: 0,
-                recipient: userAddress,
-                deadline
-            };
-            
-            console.log('🚀 Paramètres de la position:', {
-                token0: `${token0} (${usdcSymbol})`,
-                token1: `${token1} (WETH)`,
-                fee: poolFee,
-                tickLower,
-                tickUpper,
-                amount0Desired: `${ethers.formatUnits(usdcValue, token0Decimals)} ${usdcSymbol}`,
-                amount1Desired: `${ethAmount} ETH`
-            });
-            
-            // Créer la position
-            const tx = await positionManager.mint(params, {
-                value: ethValue,
-                gasLimit: 5000000
-            });
-            
-            console.log('📤 Transaction envoyée:', tx.hash);
-            
-            const receipt = await tx.wait();
-            console.log('✅ Transaction confirmée:', receipt.hash);
-            
-            // Ajouter à l'interface
-            const newPosition = {
-                id: Date.now(),
-                strategy: 'Uniswap V3',
-                pool: selectedPool.toUpperCase(),
-                amount: `${ethAmount} ETH + ${ethers.formatUnits(usdcValue, token0Decimals)} ${usdcSymbol}`,
-                apr: '45.0%',
-                pnl: '+0.00%',
-                status: 'active',
-                tokenId: "N/A"
-            };
-            
-            this.positions.push(newPosition);
-            this.updatePositionsTable();
-            this.updateDashboardStats();
-            
-            this.hideLoadingModal();
-            
-            alert(`🎉 Position créée avec succès!\n\n📄 Transaction: ${tx.hash}\n💰 Montant: ${newPosition.amount}\n🔗 Voir sur PolygonScan: https://polygonscan.com/tx/${tx.hash}`);
-            
-        } else {
-            // Pas besoin d'USDC
-            alert('Fonctionnalité non implémentée pour ce type de pool');
-            this.hideLoadingModal();
         }
+        
+        // === ÉTAPE 7: CALCUL CORRECT DES TICKS ===
+        this.showLoadingModal('Calcul de la plage de prix...');
+        
+        // Calculer les ticks pour la plage de prix
+        const rangePercentage = parseInt(selectedRange);
+        const tickRange = Math.floor(rangePercentage * 100); // Approximation
+        
+        // Calculer les ticks basés sur le tick actuel
+        const tickLower = Math.floor((Number(currentTick) - tickRange) / Number(tickSpacing)) * Number(tickSpacing);
+        const tickUpper = Math.ceil((Number(currentTick) + tickRange) / Number(tickSpacing)) * Number(tickSpacing);
+        
+        console.log("=== PARAMÈTRES DE LA PLAGE ===");
+        console.log("Tick actuel du pool:", currentTick.toString());
+        console.log("Plage sélectionnée:", rangePercentage + "%");
+        console.log("Tick inférieur calculé:", tickLower);
+        console.log("Tick supérieur calculé:", tickUpper);
+        console.log("Espacement des ticks:", tickSpacing.toString());
+        
+        // === ÉTAPE 8: CRÉATION DE LA POSITION ===
+        this.showLoadingModal('Création de la position Uniswap V3...');
+        
+        const NFT_POSITION_MANAGER_ABI = [
+            "function mint(tuple(address token0, address token1, uint24 fee, int24 tickLower, int24 tickUpper, uint256 amount0Desired, uint256 amount1Desired, uint256 amount0Min, uint256 amount1Min, address recipient, uint256 deadline) params) external payable returns (uint256 tokenId, uint128 liquidity, uint256 amount0, uint256 amount1)"
+        ];
+        
+        const deadline = Math.floor(Date.now() / 1000) + 1200; // 20 minutes
+        
+        // Déterminer les montants selon l'ordre des tokens
+        let amount0Desired, amount1Desired;
+        
+        if (needsStablecoin) {
+            if (token0 === stablecoinContract.target) {
+                // Stablecoin est token0
+                amount0Desired = stablecoinAmount;
+                amount1Desired = ethValue;
+            } else {
+                // Stablecoin est token1
+                amount0Desired = ethValue;
+                amount1Desired = stablecoinAmount;
+            }
+        } else {
+            // Pas de stablecoin, utiliser ETH seulement
+            amount0Desired = token0 === POLYGON_TOKENS.WETH ? ethValue : 0;
+            amount1Desired = token1 === POLYGON_TOKENS.WETH ? ethValue : 0;
+        }
+        
+        // Paramètres pour la position
+        const NFT_POSITION_MANAGER = "0xC36442b4a4522E871399CD717aBDD847Ab11FE88";
+        const positionManager = new ethers.Contract(NFT_POSITION_MANAGER, NFT_POSITION_MANAGER_ABI, signer);
+        
+        const params = {
+            token0,
+            token1,
+            fee: poolFee,
+            tickLower,
+            tickUpper,
+            amount0Desired,
+            amount1Desired,
+            amount0Min: 0, // Pas de slippage minimum pour simplifier
+            amount1Min: 0, // Pas de slippage minimum pour simplifier
+            recipient: userAddress,
+            deadline
+        };
+        
+        console.log('🚀 Paramètres finaux de la position:', {
+            token0: `${token0}`,
+            token1: `${token1}`,
+            fee: poolFee,
+            tickLower,
+            tickUpper,
+            amount0Desired: amount0Desired.toString(),
+            amount1Desired: amount1Desired.toString(),
+            poolAddress
+        });
+        
+        // Créer la position
+        const tx = await positionManager.mint(params, {
+            value: ethValue, // Envoyer ETH (sera converti en WETH automatiquement)
+            gasLimit: 5000000
+        });
+        
+        console.log('📤 Transaction envoyée:', tx.hash);
+        
+        const receipt = await tx.wait();
+        console.log('✅ Transaction confirmée:', receipt.hash);
+        
+        // Ajouter à l'interface
+        const newPosition = {
+            id: Date.now(),
+            strategy: 'Uniswap V3',
+            pool: selectedPool.toUpperCase(),
+            amount: needsStablecoin ? 
+                `${ethAmount} ETH + ${ethers.formatUnits(stablecoinAmount, stablecoinDecimals)} ${stablecoinSymbol}` :
+                `${ethAmount} ETH`,
+            apr: '45.0%',
+            pnl: '+0.00%',
+            status: 'active',
+            tokenId: "N/A"
+        };
+        
+        this.positions.push(newPosition);
+        this.updatePositionsTable();
+        this.updateDashboardStats();
+        
+        this.hideLoadingModal();
+        
+        alert(`🎉 Position créée avec succès!\n\n📄 Transaction: ${tx.hash}\n💰 Montant: ${newPosition.amount}\n🔗 Voir sur PolygonScan: https://polygonscan.com/tx/${tx.hash}`);
         
     } catch (error) {
         this.hideLoadingModal();
@@ -464,14 +556,16 @@ class YieldMaxApp {
         } else if (error.code === -32603) {
             errorMessage = 'Erreur de gas - Augmentez la limite ou vérifiez vos fonds';
         } else if (error.reason) {
-            errorMessage = `Erreur: ${error.reason}`;
+            errorMessage = `Erreur contractuelle: ${error.reason}`;
         } else if (error.message) {
             errorMessage = `Erreur: ${error.message}`;
             
             if (error.message.includes('execution reverted')) {
-                errorMessage = 'Erreur: Transaction échouée. Vérifiez que le pool existe et que les paramètres sont corrects.';
+                errorMessage = 'Erreur: Transaction échouée. Vérifiez que:\n- Le pool existe avec ce fee tier\n- Les ticks sont valides\n- Vous avez suffisamment de fonds\n- Les approbations sont correctes';
             } else if (error.message.includes('insufficient funds')) {
                 errorMessage = 'Fonds insuffisants pour cette transaction.';
+            } else if (error.message.includes('INVALID_TICK')) {
+                errorMessage = 'Erreur: Ticks invalides. La plage de prix sélectionnée n\'est pas valide pour ce pool.';
             }
         }
         
