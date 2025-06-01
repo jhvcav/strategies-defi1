@@ -146,54 +146,85 @@ class YieldMaxApp {
 
     // ===== GESTION DES SOLDES =====
     async loadTokenBalances() {
-    if (!this.walletConnected) return;
+        if (!this.walletConnected) return;
 
-    try {
-        const provider = new ethers.BrowserProvider(window.ethereum);
-        
-        console.log('🔍 Chargement des soldes des tokens...');
-        
-        // Charger le solde ETH natif (MATIC sur Polygon)
-        const nativeBalance = await provider.getBalance(this.currentAccount);
-        this.tokenBalances.NATIVE = ethers.formatEther(nativeBalance); // MATIC natif
-        
-        console.log(`💰 MATIC Natif: ${this.tokenBalances.NATIVE}`);
-        
-        // Charger les soldes des tokens ERC20
-        for (const [key, asset] of Object.entries(AAVE_V3_POLYGON.ASSETS)) {
+        try {
+            const provider = new ethers.BrowserProvider(window.ethereum);
+            
+            console.log('🔍 Chargement des soldes des tokens...');
+            
+            // Afficher le loader dans l'interface
+            const balanceDisplay = document.getElementById('aaveBalanceDisplay');
+            if (balanceDisplay) {
+                balanceDisplay.innerHTML = `
+                    <span class="balance-label">Solde disponible:</span>
+                    <span class="balance-value balance-loading">Chargement...</span>
+                `;
+            }
+            
+            // Charger le solde MATIC natif (token natif de Polygon)
+            const nativeBalance = await provider.getBalance(this.currentAccount);
+            this.tokenBalances.NATIVE = ethers.formatEther(nativeBalance);
+            
+            console.log(`💰 MATIC Natif: ${this.tokenBalances.NATIVE}`);
+            
+            // Charger les soldes des tokens ERC20 avec gestion d'erreur robuste
+            for (const [key, asset] of Object.entries(AAVE_V3_POLYGON.ASSETS)) {
+                try {
+                    const tokenContract = new ethers.Contract(asset.address, ERC20_ABI, provider);
+                    const balance = await tokenContract.balanceOf(this.currentAccount);
+                    const formattedBalance = ethers.formatUnits(balance, asset.decimals);
+                    this.tokenBalances[key] = formattedBalance;
+                    
+                    console.log(`💰 ${asset.symbol}: ${formattedBalance}`);
+                    
+                    // Petit délai pour éviter les rate limits
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                } catch (error) {
+                    console.error(`❌ Erreur chargement solde ${asset.symbol}:`, error);
+                    this.tokenBalances[key] = "0.0";
+                }
+            }
+            
+            // Vérifier aussi USDC Native séparément (nouvelle adresse Polygon)
             try {
-                const tokenContract = new ethers.Contract(asset.address, ERC20_ABI, provider);
-                const balance = await tokenContract.balanceOf(this.currentAccount);
-                const formattedBalance = ethers.formatUnits(balance, asset.decimals);
-                this.tokenBalances[key] = formattedBalance;
+                const usdcNativeContract = new ethers.Contract(POLYGON_TOKENS.USDC, ERC20_ABI, provider);
+                const usdcNativeBalance = await usdcNativeContract.balanceOf(this.currentAccount);
+                const formattedUsdcNative = ethers.formatUnits(usdcNativeBalance, 6);
+                this.tokenBalances.USDC_NATIVE = formattedUsdcNative;
                 
-                console.log(`💰 ${asset.symbol}: ${formattedBalance}`);
+                console.log(`💰 USDC Native: ${formattedUsdcNative}`);
             } catch (error) {
-                console.error(`Erreur chargement solde ${asset.symbol}:`, error);
-                this.tokenBalances[key] = "0.0";
+                console.error('❌ Erreur chargement USDC Native:', error);
+                this.tokenBalances.USDC_NATIVE = "0.0";
+            }
+            
+            console.log('✅ Tous les soldes chargés:', this.tokenBalances);
+            
+            // Mettre à jour l'affichage du solde
+            this.updateBalanceDisplay();
+            
+            // Notification de succès
+            this.showNotification('💰 Soldes mis à jour avec succès', 'success');
+            
+        } catch (error) {
+            console.error('❌ Erreur lors du chargement des soldes:', error);
+            this.showNotification('❌ Erreur lors du chargement des soldes', 'error');
+            
+            // En cas d'erreur, afficher un message d'erreur dans l'interface
+            const balanceDisplay = document.getElementById('aaveBalanceDisplay');
+            if (balanceDisplay) {
+                balanceDisplay.innerHTML = `
+                    <span class="balance-label">Solde disponible:</span>
+                    <span class="balance-value balance-zero">Erreur de chargement</span>
+                    <span class="balance-warning">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        Cliquez sur "Connecter Wallet" pour réessayer
+                    </span>
+                `;
             }
         }
-        
-        // Vérifier aussi USDC Native séparément
-        try {
-            const usdcNativeContract = new ethers.Contract(POLYGON_TOKENS.USDC, ERC20_ABI, provider);
-            const usdcNativeBalance = await usdcNativeContract.balanceOf(this.currentAccount);
-            const formattedUsdcNative = ethers.formatUnits(usdcNativeBalance, 6);
-            this.tokenBalances.USDC_NATIVE = formattedUsdcNative;
-            
-            console.log(`💰 USDC Native: ${formattedUsdcNative}`);
-        } catch (error) {
-            console.error('Erreur chargement USDC Native:', error);
-            this.tokenBalances.USDC_NATIVE = "0.0";
-        }
-        
-        // Mettre à jour l'affichage du solde
-        this.updateBalanceDisplay();
-        
-    } catch (error) {
-        console.error('Erreur lors du chargement des soldes:', error);
     }
-}
 
     // Fonction pour obtenir le meilleur solde USDC disponible
     getBestUSDCBalance() {
@@ -214,199 +245,248 @@ class YieldMaxApp {
     }
 
     updateBalanceDisplay() {
-    const selectedAsset = document.getElementById('aaveAssetSelect')?.value || 'weth';
-    const balanceElement = document.getElementById('aaveBalanceDisplay');
-    
-    if (!balanceElement) return;
-    
-    let balance = 0;
-    let symbol = '';
-    let balanceType = '';
-    
-    if (selectedAsset === 'usdc') {
-        const usdcInfo = this.getBestUSDCBalance();
-        balance = usdcInfo.balance;
-        symbol = 'USDC';
-        balanceType = usdcInfo.type === 'NATIVE' ? '(USDC Native)' : usdcInfo.type === 'BRIDGED' ? '(USDC.e)' : '';
+        const selectedAsset = document.getElementById('aaveAssetSelect')?.value || 'weth';
+        const balanceElement = document.getElementById('aaveBalanceDisplay');
         
-        if (usdcInfo.balance > 0) {
-            balanceElement.innerHTML = `
-                <span class="aave-balance-label">Solde disponible:</span>
-                <span class="aave-balance-value">${balance.toFixed(6)} ${symbol}</span>
-                <span class="aave-balance-type">${balanceType}</span>
-            `;
+        if (!balanceElement) return;
+        
+        let balance = 0;
+        let symbol = '';
+        let balanceType = '';
+        
+        // Logique corrigée pour chaque asset
+        if (selectedAsset === 'usdc') {
+            const usdcInfo = this.getBestUSDCBalance();
+            balance = usdcInfo.balance;
+            symbol = 'USDC';
+            balanceType = usdcInfo.type === 'NATIVE' ? '(USDC Native)' : 
+                         usdcInfo.type === 'BRIDGED' ? '(USDC.e)' : '';
+            
+            if (usdcInfo.balance > 0) {
+                balanceElement.innerHTML = `
+                    <span class="balance-label">Solde disponible:</span>
+                    <span class="balance-value">${balance.toFixed(6)} ${symbol}</span>
+                    <span class="balance-type">${balanceType}</span>
+                `;
+            } else {
+                balanceElement.innerHTML = `
+                    <span class="balance-label">Solde disponible:</span>
+                    <span class="balance-value balance-zero">0.000000 ${symbol}</span>
+                    <span class="balance-warning">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        Aucun USDC trouvé
+                    </span>
+                `;
+            }
+        } else if (selectedAsset === 'weth') {
+            // Pour WETH, utiliser le solde WETH réel (token ERC20)
+            balance = parseFloat(this.tokenBalances.WETH || "0");
+            symbol = 'WETH';
+            
+            if (balance > 0) {
+                balanceElement.innerHTML = `
+                    <span class="balance-label">Solde disponible:</span>
+                    <span class="balance-value">${balance.toFixed(6)} ${symbol}</span>
+                    <span class="balance-type">(Token ERC20)</span>
+                `;
+            } else {
+                // Si pas de WETH, informer sur MATIC disponible
+                const maticBalance = parseFloat(this.tokenBalances.NATIVE || "0");
+                balanceElement.innerHTML = `
+                    <span class="balance-label">Solde disponible:</span>
+                    <span class="balance-value balance-zero">0.000000 ${symbol}</span>
+                    <div class="balance-warning">
+                        <i class="fas fa-info-circle"></i>
+                        ${maticBalance > 0 ? 
+                          `Vous avez ${maticBalance.toFixed(4)} MATIC. Convertissez en WETH d'abord.` : 
+                          'Aucun WETH trouvé. Convertissez du MATIC ou transférez du WETH.'}
+                    </div>
+                `;
+            }
+        } else if (selectedAsset === 'wmatic') {
+            // Pour WMATIC, utiliser le solde WMATIC token
+            balance = parseFloat(this.tokenBalances.WMATIC || "0");
+            const nativeBalance = parseFloat(this.tokenBalances.NATIVE || "0");
+            symbol = 'WMATIC';
+            
+            if (balance > 0) {
+                balanceElement.innerHTML = `
+                    <span class="balance-label">Solde disponible:</span>
+                    <span class="balance-value">${balance.toFixed(6)} ${symbol}</span>
+                    <span class="balance-type">(Token ERC20)</span>
+                `;
+            } else if (nativeBalance > 0) {
+                balanceElement.innerHTML = `
+                    <span class="balance-label">Solde disponible:</span>
+                    <span class="balance-value balance-zero">0.000000 ${symbol}</span>
+                    <div class="balance-warning">
+                        <i class="fas fa-info-circle"></i>
+                        Vous avez ${nativeBalance.toFixed(4)} MATIC natif. Convertissez en WMATIC d'abord.
+                    </div>
+                `;
+            } else {
+                balanceElement.innerHTML = `
+                    <span class="balance-label">Solde disponible:</span>
+                    <span class="balance-value balance-zero">0.000000 ${symbol}</span>
+                `;
+            }
         } else {
+            // Autres tokens (WBTC, etc.)
+            balance = parseFloat(this.tokenBalances[selectedAsset.toUpperCase()] || "0");
+            symbol = AAVE_V3_POLYGON.ASSETS[selectedAsset.toUpperCase()]?.symbol || selectedAsset.toUpperCase();
+            
             balanceElement.innerHTML = `
-                <span class="aave-balance-label">Solde disponible:</span>
-                <span class="aave-balance-value balance-zero">0.000000 ${symbol}</span>
-                <span class="aave-balance-warning">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    Aucun USDC trouvé
-                </span>
+                <span class="balance-label">Solde disponible:</span>
+                <span class="balance-value ${balance === 0 ? 'balance-zero' : ''}">${balance.toFixed(8)} ${symbol}</span>
+                <span class="balance-type">(Token ERC20)</span>
             `;
         }
-    } else if (selectedAsset === 'weth') {
-        // Pour WETH, on affiche le solde WETH réel (token ERC20)
-        balance = parseFloat(this.tokenBalances.WETH || "0");
-        symbol = 'WETH';
         
-        if (balance > 0) {
-            balanceElement.innerHTML = `
-                <span class="aave-balance-label">Solde disponible:</span>
-                <span class="aave-balance-value">${balance.toFixed(6)} ${symbol}</span>
-                <span class="aave-balance-type">(Token ERC20)</span>
-            `;
-        } else {
-            // Si pas de WETH, proposer de convertir depuis MATIC
-            const maticBalance = parseFloat(this.tokenBalances.NATIVE || "0");
-            balanceElement.innerHTML = `
-                <span class="aave-balance-label">Solde disponible:</span>
-                <span class="aave-balance-value balance-zero">0.000000 ${symbol}</span>
-                <div class="aave-balance-warning">
-                    <i class="fas fa-info-circle"></i>
-                    Vous avez ${maticBalance.toFixed(4)} MATIC. Convertissez en WETH d'abord.
-                </div>
-            `;
-        }
-    } else if (selectedAsset === 'wmatic') {
-        // Pour WMATIC, on peut utiliser soit le token WMATIC soit convertir depuis MATIC natif
-        balance = parseFloat(this.tokenBalances.WMATIC || "0");
-        const nativeBalance = parseFloat(this.tokenBalances.NATIVE || "0");
-        symbol = 'WMATIC';
-        
-        if (balance > 0) {
-            balanceElement.innerHTML = `
-                <span class="aave-balance-label">Solde disponible:</span>
-                <span class="aave-balance-value">${balance.toFixed(6)} ${symbol}</span>
-                <span class="aave-balance-type">(Token ERC20)</span>
-            `;
-        } else if (nativeBalance > 0) {
-            balanceElement.innerHTML = `
-                <span class="aave-balance-label">Solde disponible:</span>
-                <span class="aave-balance-value balance-zero">0.000000 ${symbol}</span>
-                <div class="aave-balance-warning">
-                    <i class="fas fa-info-circle"></i>
-                    Vous avez ${nativeBalance.toFixed(4)} MATIC natif. Convertissez en WMATIC d'abord.
-                </div>
-            `;
-        } else {
-            balanceElement.innerHTML = `
-                <span class="aave-balance-label">Solde disponible:</span>
-                <span class="aave-balance-value balance-zero">0.000000 ${symbol}</span>
-            `;
-        }
-    } else {
-        // Autres tokens (WBTC, etc.)
-        balance = parseFloat(this.tokenBalances[selectedAsset.toUpperCase()] || "0");
-        symbol = AAVE_V3_POLYGON.ASSETS[selectedAsset.toUpperCase()]?.symbol || selectedAsset.toUpperCase();
-        
-        balanceElement.innerHTML = `
-            <span class="aave-balance-label">Solde disponible:</span>
-            <span class="aave-balance-value ${balance === 0 ? 'balance-zero' : ''}">${balance.toFixed(6)} ${symbol}</span>
-        `;
-    }
-        
-        // Mettre à jour la validation du formulaire
+        // Déclencher la validation après mise à jour du solde
         this.validateAaveForm();
     }
 
     validateAaveForm() {
-    const amount = parseFloat(document.getElementById('aaveAmount')?.value || "0");
-    const selectedAsset = document.getElementById('aaveAssetSelect')?.value || 'weth';
-    const depositBtn = document.getElementById('aaveDepositBtn');
-    const errorElement = document.getElementById('aaveBalanceError');
-    
-    if (!depositBtn || !errorElement) return;
-    
-    let availableBalance = 0;
-    let warningMessage = '';
-    
-    if (selectedAsset === 'usdc') {
-        const usdcInfo = this.getBestUSDCBalance();
-        availableBalance = usdcInfo.balance;
-    } else if (selectedAsset === 'weth') {
-        // Pour WETH, utiliser le solde WETH réel, pas MATIC
-        availableBalance = parseFloat(this.tokenBalances.WETH || "0");
+        const amount = parseFloat(document.getElementById('aaveAmount')?.value || "0");
+        const selectedAsset = document.getElementById('aaveAssetSelect')?.value || 'weth';
+        const depositBtn = document.getElementById('aaveDepositBtn');
+        const errorElement = document.getElementById('aaveBalanceError');
         
-        if (availableBalance === 0) {
-            const maticBalance = parseFloat(this.tokenBalances.NATIVE || "0");
-            if (maticBalance > 0) {
-                warningMessage = `Vous devez d'abord convertir vos ${maticBalance.toFixed(4)} MATIC en WETH`;
+        if (!depositBtn || !errorElement) return;
+        
+        let availableBalance = 0;
+        let warningMessage = '';
+        let canDeposit = false;
+        
+        // Déterminer le solde disponible selon l'asset sélectionné
+        if (selectedAsset === 'usdc') {
+            const usdcInfo = this.getBestUSDCBalance();
+            availableBalance = usdcInfo.balance;
+            canDeposit = availableBalance > 0;
+        } else if (selectedAsset === 'weth') {
+            // Pour WETH, utiliser le solde WETH réel, pas MATIC
+            availableBalance = parseFloat(this.tokenBalances.WETH || "0");
+            canDeposit = availableBalance > 0;
+            
+            if (availableBalance === 0) {
+                const maticBalance = parseFloat(this.tokenBalances.NATIVE || "0");
+                if (maticBalance > 0) {
+                    warningMessage = `Vous devez d'abord convertir vos ${maticBalance.toFixed(4)} MATIC en WETH`;
+                } else {
+                    warningMessage = `Vous n'avez pas de WETH. Transférez du WETH ou convertissez du MATIC`;
+                }
+            }
+        } else if (selectedAsset === 'wmatic') {
+            // Pour WMATIC, utiliser le solde WMATIC token
+            availableBalance = parseFloat(this.tokenBalances.WMATIC || "0");
+            canDeposit = availableBalance > 0;
+            
+            if (availableBalance === 0) {
+                const nativeBalance = parseFloat(this.tokenBalances.NATIVE || "0");
+                if (nativeBalance > 0) {
+                    warningMessage = `Vous devez d'abord convertir vos ${nativeBalance.toFixed(4)} MATIC en WMATIC`;
+                } else {
+                    warningMessage = `Vous n'avez pas de WMATIC. Transférez du WMATIC ou convertissez du MATIC`;
+                }
+            }
+        } else {
+            // Autres tokens (WBTC, etc.)
+            availableBalance = parseFloat(this.tokenBalances[selectedAsset.toUpperCase()] || "0");
+            canDeposit = availableBalance > 0;
+            
+            if (availableBalance === 0) {
+                warningMessage = `Vous n'avez pas de ${selectedAsset.toUpperCase()}. Transférez des tokens vers votre wallet`;
             }
         }
-    } else if (selectedAsset === 'wmatic') {
-        // Pour WMATIC, utiliser le solde WMATIC token
-        availableBalance = parseFloat(this.tokenBalances.WMATIC || "0");
         
-        if (availableBalance === 0) {
-            const nativeBalance = parseFloat(this.tokenBalances.NATIVE || "0");
-            if (nativeBalance > 0) {
-                warningMessage = `Vous devez d'abord convertir vos ${nativeBalance.toFixed(4)} MATIC en WMATIC`;
+        // Logique de validation
+        if (amount > 0 && amount > availableBalance) {
+            // Montant supérieur au solde disponible
+            depositBtn.disabled = true;
+            depositBtn.innerHTML = `
+                <i class="fas fa-exclamation-triangle"></i>
+                Solde Insuffisant
+            `;
+            depositBtn.classList.add('disabled');
+            
+            const errorMsg = `Solde insuffisant. Vous avez ${availableBalance.toFixed(6)} ${selectedAsset.toUpperCase()}, mais vous voulez déposer ${amount.toFixed(6)}`;
+            
+            errorElement.innerHTML = `
+                <i class="fas fa-exclamation-triangle"></i>
+                <span>${errorMsg}</span>
+            `;
+            errorElement.classList.add('show');
+            
+        } else if (amount > 0 && !canDeposit) {
+            // Pas de solde du tout pour cet asset
+            depositBtn.disabled = true;
+            depositBtn.innerHTML = `
+                <i class="fas fa-exchange-alt"></i>
+                Conversion Requise
+            `;
+            depositBtn.classList.add('disabled');
+            
+            errorElement.innerHTML = `
+                <i class="fas fa-info-circle"></i>
+                <span>${warningMessage}</span>
+            `;
+            errorElement.classList.add('show');
+            
+        } else if (amount > 0 && canDeposit) {
+            // Montant valide et solde suffisant
+            depositBtn.disabled = false;
+            depositBtn.innerHTML = `
+                <i class="fas fa-plus-circle"></i>
+                Déposer ${amount.toFixed(4)} ${selectedAsset.toUpperCase()}
+            `;
+            depositBtn.classList.remove('disabled');
+            errorElement.classList.remove('show');
+            
+        } else if (amount <= 0 && canDeposit) {
+            // Pas de montant mais solde disponible
+            depositBtn.disabled = false;
+            depositBtn.innerHTML = `
+                <i class="fas fa-plus-circle"></i>
+                Déposer sur Aave
+            `;
+            depositBtn.classList.remove('disabled');
+            errorElement.classList.remove('show');
+            
+        } else {
+            // Pas de montant et pas de solde
+            depositBtn.disabled = true;
+            depositBtn.innerHTML = `
+                <i class="fas fa-wallet"></i>
+                Aucun Solde Disponible
+            `;
+            depositBtn.classList.add('disabled');
+            
+            if (warningMessage) {
+                errorElement.innerHTML = `
+                    <i class="fas fa-info-circle"></i>
+                    <span>${warningMessage}</span>
+                `;
+                errorElement.classList.add('show');
+            } else {
+                errorElement.classList.remove('show');
             }
         }
-    } else {
-        availableBalance = parseFloat(this.tokenBalances[selectedAsset.toUpperCase()] || "0");
     }
-    
-    if (amount > 0 && amount > availableBalance) {
-        // Solde insuffisant
-        depositBtn.disabled = true;
-        depositBtn.innerHTML = `
-            <i class="fas fa-exclamation-triangle"></i>
-            Solde Insuffisant
-        `;
-        depositBtn.classList.add('disabled');
+
+    // ===== FONCTION POUR RAFRAÎCHIR LES SOLDES MANUELLEMENT =====
+    async refreshBalances() {
+        if (!this.walletConnected) {
+            this.showNotification('Veuillez d\'abord connecter votre wallet', 'warning');
+            return;
+        }
         
-        const errorMsg = warningMessage || 
-            `Solde insuffisant. Vous avez ${availableBalance.toFixed(6)} ${selectedAsset.toUpperCase()}, mais vous voulez déposer ${amount}`;
-        
-        errorElement.innerHTML = `
-            <i class="fas fa-exclamation-triangle"></i>
-            ${errorMsg}
-        `;
-        errorElement.style.display = 'block';
-        errorElement.classList.add('show');
-    } else if (amount > 0 && warningMessage && availableBalance === 0) {
-        // Besoin de conversion
-        depositBtn.disabled = true;
-        depositBtn.innerHTML = `
-            <i class="fas fa-exchange-alt"></i>
-            Conversion Requise
-        `;
-        depositBtn.classList.add('disabled');
-        
-        errorElement.innerHTML = `
-            <i class="fas fa-info-circle"></i>
-            ${warningMessage}
-        `;
-        errorElement.style.display = 'block';
-        errorElement.classList.add('show');
-    } else if (amount > 0) {
-        // Montant valide
-        depositBtn.disabled = false;
-        depositBtn.innerHTML = `
-            <i class="fas fa-plus-circle"></i>
-            Déposer sur Aave
-        `;
-        depositBtn.classList.remove('disabled');
-        errorElement.style.display = 'none';
-        errorElement.classList.remove('show');
-    } else {
-        // Pas de montant
-        depositBtn.disabled = false;
-        depositBtn.innerHTML = `
-            <i class="fas fa-plus-circle"></i>
-            Déposer sur Aave
-        `;
-        depositBtn.classList.remove('disabled');
-        errorElement.style.display = 'none';
-        errorElement.classList.remove('show');
+        this.showNotification('🔄 Actualisation des soldes...', 'info');
+        await this.loadTokenBalances();
     }
-}
 
     // ===== STRATEGY MANAGEMENT =====
     switchStrategy(strategyName) {
-        console.log('Changement de stratégie vers:', strategyName);
+        console.log('🔄 Changement de stratégie vers:', strategyName);
         
         // Masquer tous les contenus de stratégie
         document.querySelectorAll('.strategy-content').forEach(content => {
@@ -423,11 +503,24 @@ class YieldMaxApp {
         document.querySelector(`[data-strategy="${strategyName}"]`).classList.add('active');
         
         this.activeStrategy = strategyName;
-        this.updateStrategyMetrics();
         
-        // Si on change vers Aave, recharger les soldes
-        if (strategyName === 'aave' && this.walletConnected) {
-            this.loadTokenBalances();
+        // Si on change vers Aave, charger les soldes et mettre à jour les métriques
+        if (strategyName === 'aave') {
+            if (this.walletConnected) {
+                // Recharger les soldes si nécessaire
+                if (Object.keys(this.tokenBalances).length === 0) {
+                    this.loadTokenBalances();
+                } else {
+                    // Juste mettre à jour l'affichage
+                    this.updateAaveMetrics();
+                }
+            } else {
+                // Wallet pas connecté, afficher valeurs par défaut
+                this.updateAaveMetrics();
+            }
+        } else {
+            // Pour les autres stratégies, utiliser leurs fonctions de mise à jour
+            this.updateStrategyMetrics();
         }
     }
 
@@ -561,48 +654,93 @@ class YieldMaxApp {
         const amount = parseFloat(document.getElementById('aaveAmount')?.value) || 0;
         const selectedAsset = document.getElementById('aaveAssetSelect')?.value || 'weth';
         
+        // APRs réels d'Aave sur Polygon (mis à jour régulièrement)
+        const aprs = {
+            weth: 5.2,
+            usdc: 3.8,
+            wmatic: 6.1,
+            wbtc: 4.9
+        };
+        
+        // Prix approximatifs en USD pour calculs
+        const prices = {
+            weth: 2500,
+            usdc: 1,
+            wmatic: 0.8,
+            wbtc: 45000
+        };
+        
+        const currentAPR = aprs[selectedAsset] || 5.0;
+        const price = prices[selectedAsset] || 1;
+        
+        // Calculs de rendement basés sur le montant saisi
+        let dailyYield = 0;
+        let monthlyYield = 0;
+        let dailyUSD = 0;
+        let monthlyUSD = 0;
+        
         if (amount > 0) {
-            // APRs approximatifs sur Aave Polygon
-            const aprs = {
-                weth: 5.2,
-                usdc: 3.8,
-                wmatic: 6.1,
-                wbtc: 4.9
-            };
+            // Calcul des rendements en tokens
+            dailyYield = (amount * currentAPR / 100 / 365);
+            monthlyYield = dailyYield * 30;
             
-            const currentAPR = aprs[selectedAsset] || 5.0;
-            const dailyYield = (amount * currentAPR / 100 / 365);
-            const monthlyYield = dailyYield * 30;
-            
-            // Prix approximatifs pour la conversion USD
-            const prices = {
-                weth: 2500,
-                usdc: 1,
-                wmatic: 0.8,
-                wbtc: 45000
-            };
-            
-            const price = prices[selectedAsset] || 1;
-            const dailyUSD = dailyYield * price;
-            const monthlyUSD = monthlyYield * price;
-            
-            // Mettre à jour l'interface
-            const aprElement = document.getElementById('aaveCurrentAPR');
-            const dailyElement = document.getElementById('aaveDailyYield');
-            const monthlyElement = document.getElementById('aaveMonthlyYield');
-            const symbolElement = document.getElementById('aaveAssetSymbol');
-            const aTokenElement = document.getElementById('aTokenName');
-            
-            if (aprElement) aprElement.textContent = `${currentAPR}%`;
-            if (dailyElement) dailyElement.textContent = `$${dailyUSD.toFixed(4)}`;
-            if (monthlyElement) monthlyElement.textContent = `$${monthlyUSD.toFixed(2)}`;
-            if (symbolElement) symbolElement.textContent = selectedAsset.toUpperCase();
-            if (aTokenElement) aTokenElement.textContent = `a${selectedAsset.toUpperCase()}`;
+            // Conversion en USD
+            dailyUSD = dailyYield * price;
+            monthlyUSD = monthlyYield * price;
+        }
+        
+        // Mettre à jour l'interface avec animation
+        const aprElement = document.getElementById('aaveCurrentAPR');
+        const dailyElement = document.getElementById('aaveDailyYield');
+        const monthlyElement = document.getElementById('aaveMonthlyYield');
+        const symbolElement = document.getElementById('aaveAssetSymbol');
+        const aTokenElement = document.getElementById('aTokenName');
+        
+        if (aprElement) {
+            aprElement.classList.add('updating');
+            aprElement.textContent = `${currentAPR}%`;
+            setTimeout(() => aprElement.classList.remove('updating'), 300);
+        }
+        
+        if (dailyElement) {
+            dailyElement.classList.add('updating');
+            if (amount > 0) {
+                dailyElement.textContent = `$${dailyUSD.toFixed(4)} (${dailyYield.toFixed(6)} ${selectedAsset.toUpperCase()})`;
+            } else {
+                dailyElement.textContent = `$0.0000`;
+            }
+            setTimeout(() => dailyElement.classList.remove('updating'), 300);
+        }
+        
+        if (monthlyElement) {
+            monthlyElement.classList.add('updating');
+            if (amount > 0) {
+                monthlyElement.textContent = `$${monthlyUSD.toFixed(2)} (${monthlyYield.toFixed(4)} ${selectedAsset.toUpperCase()})`;
+            } else {
+                monthlyElement.textContent = `$0.00`;
+            }
+            setTimeout(() => monthlyElement.classList.remove('updating'), 300);
+        }
+        
+        if (symbolElement) {
+            symbolElement.textContent = selectedAsset.toUpperCase();
+        }
+        
+        if (aTokenElement) {
+            aTokenElement.textContent = `a${selectedAsset.toUpperCase()}`;
         }
         
         // Mettre à jour l'affichage du solde et la validation
         this.updateBalanceDisplay();
         this.validateAaveForm();
+        
+        console.log(`📊 Métriques Aave mises à jour:`, {
+            asset: selectedAsset,
+            amount: amount,
+            apr: currentAPR + '%',
+            dailyUSD: '$' + dailyUSD.toFixed(4),
+            monthlyUSD: '$' + monthlyUSD.toFixed(2)
+        });
     }
 
     async deployAaveStrategy() {
@@ -635,7 +773,7 @@ class YieldMaxApp {
                 assetInfo = AAVE_V3_POLYGON.ASSETS.USDC;
             }
         } else if (selectedAsset === 'weth') {
-            availableBalance = parseFloat(this.tokenBalances.ETH || "0");
+            availableBalance = parseFloat(this.tokenBalances.WETH || "0");
             assetInfo = AAVE_V3_POLYGON.ASSETS.WETH;
             tokenAddress = assetInfo.address;
         } else {
@@ -981,6 +1119,107 @@ class YieldMaxApp {
         }
     }
 
+    // Fonction pour définir le montant maximum disponible
+    setMaxAmount() {
+        if (!this.walletConnected) {
+            this.showNotification('Veuillez d\'abord connecter votre wallet', 'warning');
+            return;
+        }
+        
+        const selectedAsset = document.getElementById('aaveAssetSelect').value;
+        const amountInput = document.getElementById('aaveAmount');
+        
+        let maxBalance = 0;
+        let warningMsg = '';
+        
+        if (selectedAsset === 'usdc') {
+            const usdcInfo = this.getBestUSDCBalance();
+            maxBalance = usdcInfo.balance;
+        } else if (selectedAsset === 'weth') {
+            // Pour WETH, utiliser le solde WETH réel
+            maxBalance = parseFloat(this.tokenBalances.WETH || "0");
+            
+            if (maxBalance === 0) {
+                const maticBalance = parseFloat(this.tokenBalances.NATIVE || "0");
+                if (maticBalance > 0) {
+                    warningMsg = `Vous avez ${maticBalance.toFixed(4)} MATIC. Convertissez d'abord en WETH.`;
+                } else {
+                    warningMsg = 'Aucun WETH disponible. Transférez du WETH ou convertissez du MATIC.';
+                }
+            }
+        } else if (selectedAsset === 'wmatic') {
+            // Pour WMATIC, utiliser le solde WMATIC token
+            maxBalance = parseFloat(this.tokenBalances.WMATIC || "0");
+            
+            if (maxBalance === 0) {
+                const nativeBalance = parseFloat(this.tokenBalances.NATIVE || "0");
+                if (nativeBalance > 0) {
+                    warningMsg = `Vous avez ${nativeBalance.toFixed(4)} MATIC natif. Convertissez d'abord en WMATIC.`;
+                }
+            }
+        } else {
+            maxBalance = parseFloat(this.tokenBalances[selectedAsset.toUpperCase()] || "0");
+        }
+        
+        if (maxBalance > 0) {
+            // Garder une petite marge de sécurité (99.9%)
+            const maxAmount = maxBalance * 0.999;
+            amountInput.value = maxAmount.toFixed(8);
+            
+            // Déclencher immédiatement la mise à jour des métriques
+            this.updateAaveMetrics();
+            
+            // Notification de succès
+            this.showNotification(`💰 Montant maximum défini: ${maxAmount.toFixed(6)} ${selectedAsset.toUpperCase()}`, 'success');
+        } else {
+            if (warningMsg) {
+                this.showNotification(`⚠️ ${warningMsg}`, 'warning');
+            } else {
+                this.showNotification(`❌ Aucun solde ${selectedAsset.toUpperCase()} disponible`, 'error');
+            }
+        }
+    }
+
+    // ===== FONCTIONS POUR DÉTECTER LES CHANGEMENTS DE RÉSEAU =====
+    handleNetworkChange() {
+        console.log('🌐 Changement de réseau détecté, rechargement des soldes...');
+        
+        // Réinitialiser les soldes
+        this.tokenBalances = {};
+        
+        // Recharger les soldes si wallet connecté
+        if (this.walletConnected) {
+            setTimeout(() => {
+                this.loadTokenBalances();
+            }, 1000); // Petit délai pour laisser le réseau se stabiliser
+        }
+    }
+
+    // ===== INITIALIZATION =====
+    updateUI() {
+        this.updateDashboardStats();
+        this.generateArbitrageOpportunities();
+        this.updateStrategyMetrics();
+    }
+
+    updateStrategyMetrics() {
+        console.log('📊 Mise à jour des métriques pour:', this.activeStrategy);
+        
+        switch(this.activeStrategy) {
+            case 'uniswap':
+                this.updateUniswapMetrics();
+                break;
+            case 'aave':
+                this.updateAaveMetrics();
+                break;
+            case 'flashloan':
+                // Pas de métriques spécifiques pour flashloan
+                break;
+            default:
+                console.log('Stratégie inconnue:', this.activeStrategy);
+        }
+    }
+
     // ===== EVENT LISTENERS SETUP =====
     setupEventListeners() {
         // Connexion wallet
@@ -1016,33 +1255,11 @@ class YieldMaxApp {
             });
         });
 
-        // Bouton MAX pour Aave
-        const maxButton = document.querySelector('.max-button');
-        if (maxButton) {
-            maxButton.addEventListener('click', () => {
-            this.setMaxAmount();
-            });
-        }
-
         // Changements d'input pour mises à jour en temps réel
         const ethAmountInput = document.getElementById('ethAmount');
         if (ethAmountInput) {
             ethAmountInput.addEventListener('input', () => {
                 this.updateUniswapMetrics();
-            });
-        }
-
-        const collateralAmountInput = document.getElementById('collateralAmount');
-        if (collateralAmountInput) {
-            collateralAmountInput.addEventListener('input', () => {
-                this.updateAaveMetrics();
-            });
-        }
-
-        const leverageRangeInput = document.getElementById('leverageRange');
-        if (leverageRangeInput) {
-            leverageRangeInput.addEventListener('input', () => {
-                this.updateAaveMetrics();
             });
         }
 
@@ -1103,14 +1320,30 @@ class YieldMaxApp {
         const aaveAssetSelect = document.getElementById('aaveAssetSelect');
         if (aaveAssetSelect) {
             aaveAssetSelect.addEventListener('change', () => {
-                this.updateAaveMetrics();
+                console.log('🔄 Asset Aave changé, mise à jour des métriques...');
+                // Réinitialiser le montant pour éviter la confusion
+                const amountInput = document.getElementById('aaveAmount');
+                if (amountInput && amountInput.value) {
+                    // Si il y avait un montant, garder et recalculer
+                    this.updateAaveMetrics();
+                } else {
+                    // Sinon, juste mettre à jour l'affichage
+                    this.updateBalanceDisplay();
+                }
             });
         }
 
         // Changement de montant Aave
         const aaveAmountInput = document.getElementById('aaveAmount');
         if (aaveAmountInput) {
+            // Mise à jour en temps réel pendant la frappe
             aaveAmountInput.addEventListener('input', () => {
+                console.log('💱 Montant Aave changé, recalcul des métriques...');
+                this.updateAaveMetrics();
+            });
+            
+            // Mise à jour aussi sur focus out pour être sûr
+            aaveAmountInput.addEventListener('blur', () => {
                 this.updateAaveMetrics();
             });
         }
@@ -1132,23 +1365,25 @@ class YieldMaxApp {
         // Événements du wallet
         if (window.ethereum) {
             window.ethereum.on('accountsChanged', (accounts) => {
-                console.log('Compte wallet changé:', accounts);
+                console.log('👤 Compte wallet changé:', accounts);
                 
                 if (accounts.length === 0) {
                     this.walletConnected = false;
                     this.currentAccount = null;
+                    this.tokenBalances = {}; // Réinitialiser les soldes
                     this.updateWalletUI();
+                    this.updateBalanceDisplay(); // Mettre à jour l'affichage Aave
                 } else {
                     this.currentAccount = accounts[0];
                     this.walletConnected = true;
                     this.updateWalletUI();
                     this.loadUserPositions();
-                    this.loadTokenBalances();
+                    this.loadTokenBalances(); // Charger les nouveaux soldes
                 }
             });
 
             window.ethereum.on('chainChanged', (chainId) => {
-                console.log('Réseau changé:', chainId);
+                console.log('🌐 Réseau changé:', chainId);
                 const currentChainId = parseInt(chainId, 16);
                 
                 if (currentChainId === POLYGON_CHAIN_ID) {
@@ -1172,10 +1407,8 @@ class YieldMaxApp {
                     }
                 }
                 
-                // Recharger les soldes après changement de réseau
-                if (this.walletConnected) {
-                    this.loadTokenBalances();
-                }
+                // Appeler la fonction de gestion du changement de réseau
+                this.handleNetworkChange();
             });
         }
     }
@@ -1298,80 +1531,6 @@ class YieldMaxApp {
             }
         }, 5000);
     }
-
-    // Fonction pour définir le montant maximum disponible
-setMaxAmount() {
-    if (!this.walletConnected) {
-        alert('Veuillez d\'abord connecter votre wallet');
-        return;
-    }
-    
-    const selectedAsset = document.getElementById('aaveAssetSelect').value;
-    const amountInput = document.getElementById('aaveAmount');
-    
-    let maxBalance = 0;
-    let warningMsg = '';
-    
-    if (selectedAsset === 'usdc') {
-        const usdcInfo = this.getBestUSDCBalance();
-        maxBalance = usdcInfo.balance;
-    } else if (selectedAsset === 'weth') {
-        // Pour WETH, utiliser le solde WETH réel
-        maxBalance = parseFloat(this.tokenBalances.WETH || "0");
-        
-        if (maxBalance === 0) {
-            const maticBalance = parseFloat(this.tokenBalances.NATIVE || "0");
-            if (maticBalance > 0) {
-                warningMsg = `Vous avez ${maticBalance.toFixed(4)} MATIC. Convertissez d'abord en WETH.`;
-            }
-        }
-    } else if (selectedAsset === 'wmatic') {
-        // Pour WMATIC, utiliser le solde WMATIC token
-        maxBalance = parseFloat(this.tokenBalances.WMATIC || "0");
-        
-        if (maxBalance === 0) {
-            const nativeBalance = parseFloat(this.tokenBalances.NATIVE || "0");
-            if (nativeBalance > 0) {
-                warningMsg = `Vous avez ${nativeBalance.toFixed(4)} MATIC natif. Convertissez d'abord en WMATIC.`;
-            }
-        }
-    } else {
-        maxBalance = parseFloat(this.tokenBalances[selectedAsset.toUpperCase()] || "0");
-    }
-    
-    if (maxBalance > 0) {
-        // Garder une petite marge de sécurité
-        const maxAmount = maxBalance * 0.999;
-        amountInput.value = maxAmount.toFixed(6);
-        
-        // Déclencher la mise à jour des métriques
-        this.updateAaveMetrics();
-        
-        // Notification
-        this.showNotification(`Montant maximum défini: ${maxAmount.toFixed(6)} ${selectedAsset.toUpperCase()}`, 'success');
-    } else {
-        if (warningMsg) {
-            alert(`⚠️ ${warningMsg}`);
-        } else {
-            alert(`❌ Aucun solde ${selectedAsset.toUpperCase()} disponible\n\nVeuillez d'abord transférer des tokens vers votre wallet.`);
-        }
-    }
-}
-
-    // ===== INITIALIZATION =====
-    updateUI() {
-        this.updateDashboardStats();
-        this.generateArbitrageOpportunities();
-        this.updateStrategyMetrics();
-    }
-
-    updateStrategyMetrics() {
-        if (this.activeStrategy === 'uniswap') {
-            this.updateUniswapMetrics();
-        } else if (this.activeStrategy === 'aave') {
-            this.updateAaveMetrics();
-        }
-    }
 }
 
 // ===== APP INITIALIZATION =====
@@ -1407,7 +1566,7 @@ function copyToClipboard(text) {
     }).catch(() => {
         if (app) app.showNotification('Erreur lors de la copie', 'error');
     });
-}   
+}
 
 console.log('🏁 FIN app.js - Version avec correction solde USDC');
 

@@ -101,7 +101,7 @@
         }
     </style>
 </head>
-<body>
+Aave Strategy <body>
     <div class="app-container">
         <!-- Header -->
         <header class="header">
@@ -269,109 +269,113 @@
                     </div>
                 </div>
 
-                <!-- Aave Strategy -->
-                <div class="strategy-content" id="aave-strategy">
-                    <div class="strategy-header">
-                        <h3>Aave - Lending Simple</h3>
-                        <div class="strategy-stats">
-                            <span class="apr-badge">APR: 3-8%</span>
-                            <span class="risk-badge risk-low">Risque: Très Faible</span>
-                        </div>
-                    </div>
-                    
-                    <div class="strategy-form">
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="aaveAssetSelect">Asset à Déposer</label>
-                                <select id="aaveAssetSelect">
-                                    <option value="weth">WETH (Wrapped Ethereum)</option>
-                                    <option value="usdc">USDC (USD Coin)</option>
-                                    <option value="wmatic">WMATIC (Wrapped Polygon)</option>
-                                    <option value="wbtc">WBTC (Wrapped Bitcoin)</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label for="aaveAmount">Montant à Déposer</label>
-                                <div class="input-with-balance">
-                                    <input type="number" id="aaveAmount" placeholder="0.0" step="0.001">
-                                    <button type="button" class="max-button" onclick="app.setMaxAmount()">MAX</button>
-                                    <span class="input-suffix" id="aaveAssetSymbol">WETH</span>
-                                </div>
-                                
-                                <!-- Affichage du solde disponible -->
-                                <div class="balance-display" id="aaveBalanceDisplay">
-                                    <span class="balance-label">Solde disponible:</span>
-                                    <span class="balance-value">-- --</span>
-                                </div>
-                                
-                                <!-- Message d'erreur pour solde insuffisant -->
-                                <div class="balance-error" id="aaveBalanceError">
-                                    <i class="fas fa-exclamation-triangle"></i>
-                                    Solde insuffisant
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="lending-info">
-                            <h4>Informations de Lending</h4>
-                            <div class="info-grid">
-                                <div class="info-item">
-                                    <span>Type de Stratégie:</span>
-                                    <strong>Lending Simple</strong>
-                                </div>
-                                <div class="info-item">
-                                    <span>Token Reçu:</span>
-                                    <strong id="aTokenName">aWETH</strong>
-                                </div>
-                                <div class="info-item">
-                                    <span>Intérêts:</span>
-                                    <strong>Automatiques</strong>
-                                </div>
-                                <div class="info-item">
-                                    <span>Liquidité:</span>
-                                    <strong>Retrait immédiat</strong>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="yield-preview">
-                            <h4>Prévision de Rendement</h4>
-                            <div class="yield-metrics">
-                                <div class="metric">
-                                    <span>APR Actuel:</span>
-                                    <strong class="highlight" id="aaveCurrentAPR">5.2%</strong>
-                                </div>
-                                <div class="metric">
-                                    <span>Gains Journaliers:</span>
-                                    <strong id="aaveDailyYield">$0.00</strong>
-                                </div>
-                                <div class="metric">
-                                    <span>Gains Mensuels:</span>
-                                    <strong class="safe" id="aaveMonthlyYield">$0.00</strong>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="strategy-actions">
-                            <button class="strategy-btn primary" id="aaveDepositBtn">
-                                <i class="fas fa-plus-circle"></i>
-                                Déposer sur Aave
-                            </button>
-                            <button class="strategy-btn secondary" id="aaveWithdrawBtn" style="display: none;">
-                                <i class="fas fa-minus-circle"></i>
-                                Retirer d'Aave
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Aave Positions -->
-                    <div class="aave-positions" id="aavePositions" style="display: none;">
-                        <h4>Vos Positions Aave</h4>
-                        <div class="positions-list" id="aavePositionsList">
-                            <!-- Les positions seront ajoutées dynamiquement -->
-                        </div>
-                    </div>
+                <!-- Aave Strategy - Structure identique aux autres -->
+<div class="strategy-content" id="aave-strategy">
+    <div class="strategy-header">
+        <h3>Aave - Lending Simple</h3>
+        <div class="strategy-stats">
+            <span class="apr-badge">APR: 3-8%</span>
+            <span class="risk-badge risk-low">Risque: Très Faible</span>
+        </div>
+    </div>
+    
+    <div class="strategy-form">
+        <!-- Même structure que Uniswap -->
+        <div class="form-row">
+            <div class="input-group">
+                <label>Asset à Déposer</label>
+                <select id="aaveAssetSelect">
+                    <option value="weth">💎 WETH (Wrapped Ethereum)</option>
+                    <option value="usdc">💵 USDC (USD Coin)</option>
+                    <option value="wmatic">🟣 WMATIC (Wrapped Polygon)</option>
+                    <option value="wbtc">🟠 WBTC (Wrapped Bitcoin)</option>
+                </select>
+            </div>
+            <div class="input-group">
+                <label>Montant à Déposer</label>
+                <div class="amount-input-container">
+                    <input type="number" id="aaveAmount" placeholder="0.0" step="0.000001">
+                    <button type="button" class="max-button" onclick="app.setMaxAmount()">MAX</button>
+                    <!--<span class="input-suffix" id="aaveAssetSymbol">WETH</span>-->
                 </div>
+                
+                <!-- Affichage du solde -->
+                <div class="balance-display" id="aaveBalanceDisplay">
+                    <span class="balance-label">Solde disponible:</span>
+                    <span class="balance-value balance-loading">Chargement...</span>
+                </div>
+                
+                <!-- Message d'erreur -->
+                <div class="balance-error" id="aaveBalanceError">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span>Message d'erreur</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Informations de lending - même style que yield-preview -->
+        <div class="lending-info">
+            <h4>Informations de Lending</h4>
+            <div class="info-grid">
+                <div class="info-item">
+                    <span>Type de Stratégie:</span>
+                    <strong>Lending Simple</strong>
+                </div>
+                <div class="info-item">
+                    <span>Token Reçu:</span>
+                    <strong id="aTokenName">aWETH</strong>
+                </div>
+                <div class="info-item">
+                    <span>Intérêts:</span>
+                    <strong>Automatiques</strong>
+                </div>
+                <div class="info-item">
+                    <span>Liquidité:</span>
+                    <strong>Retrait immédiat</strong>
+                </div>
+            </div>
+        </div>
+
+        <!-- Yield preview - exactement comme Uniswap -->
+        <div class="yield-preview">
+            <h4>Prévision de Rendement</h4>
+            <div class="yield-metrics">
+                <div class="metric">
+                    <span>APR Actuel:</span>
+                    <strong class="highlight" id="aaveCurrentAPR">5.2%</strong>
+                </div>
+                <div class="metric">
+                    <span>Gains Journaliers:</span>
+                    <strong id="aaveDailyYield">$0.0000</strong>
+                </div>
+                <div class="metric">
+                    <span>Gains Mensuels:</span>
+                    <strong class="safe" id="aaveMonthlyYield">$0.00</strong>
+                </div>
+            </div>
+        </div>
+
+        <!-- Actions - même style que les autres -->
+        <div class="strategy-actions">
+            <button class="strategy-btn primary" id="aaveDepositBtn">
+                <i class="fas fa-plus-circle"></i>
+                Déposer sur Aave
+            </button>
+            <button class="strategy-btn secondary" id="aaveWithdrawBtn" style="display: none;">
+                <i class="fas fa-minus-circle"></i>
+                Retirer d'Aave
+            </button>
+        </div>
+    </div>
+
+    <!-- Positions Aave -->
+    <div class="aave-positions" id="aavePositions" style="display: none;">
+        <h4>Vos Positions Aave</h4>
+        <div class="positions-list" id="aavePositionsList">
+            <!-- Les positions seront ajoutées dynamiquement -->
+        </div>
+    </div>
+</div>
 
                 <!-- Flash Loan Strategy -->
                 <div class="strategy-content" id="flashloan-strategy">
