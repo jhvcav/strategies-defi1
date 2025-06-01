@@ -278,10 +278,27 @@ class YieldMaxApp {
         const tickSpacing = 10; // Pour fee tier 500
         const tickRange = 5000; // Large plage pour éviter les erreurs
         
-        const tickLower = Math.floor((Number(currentTick) - tickRange) / tickSpacing) * tickSpacing;
-        const tickUpper = Math.ceil((Number(currentTick) + tickRange) / tickSpacing) * tickSpacing;
+        // CORRECTION IMPORTANTE: Les ticks doivent être divisibles par tickSpacing
+        const rawTickLower = Number(currentTick) - tickRange;
+        const rawTickUpper = Number(currentTick) + tickRange;
         
-        console.log("Plage de ticks:", tickLower, "à", tickUpper);
+        // Arrondir correctement selon le tickSpacing
+        const tickLower = Math.floor(rawTickLower / tickSpacing) * tickSpacing;
+        const tickUpper = Math.ceil(rawTickUpper / tickSpacing) * tickSpacing;
+        
+        // Vérification finale de la divisibilité
+        if (tickLower % tickSpacing !== 0 || tickUpper % tickSpacing !== 0) {
+            console.error('❌ Erreur de ticks:', { tickLower, tickUpper, tickSpacing });
+            this.hideLoadingModal();
+            alert('Erreur de calcul des ticks. Veuillez réessayer.');
+            return;
+        }
+        
+        console.log("Plage de ticks corrigée:", tickLower, "à", tickUpper);
+        console.log("Vérification divisibilité:", {
+            tickLowerOk: tickLower % tickSpacing === 0,
+            tickUpperOk: tickUpper % tickSpacing === 0
+        });
         
         // === VÉRIFICATION DES SOLDES ===
         const ethBalance = await provider.getBalance(userAddress);
@@ -350,7 +367,8 @@ class YieldMaxApp {
         
         // === CRÉATION DE LA POSITION ===
         const NFT_POSITION_MANAGER_ABI = [
-            "function mint(tuple(address token0, address token1, uint24 fee, int24 tickLower, int24 tickUpper, uint256 amount0Desired, uint256 amount1Desired, uint256 amount0Min, uint256 amount1Min, address recipient, uint256 deadline) params) external payable returns (uint256 tokenId, uint128 liquidity, uint256 amount0, uint256 amount1)"
+            "function mint(tuple(address token0, address token1, uint24 fee, int24 tickLower, int24 tickUpper, uint256 amount0Desired, uint256 amount1Desired, uint256 amount0Min, uint256 amount1Min, address recipient, uint256 deadline) params) external payable returns (uint256 tokenId, uint128 liquidity, uint256 amount0, uint256 amount1)",
+            "function refundETH() external payable"
         ];
         
         const positionManager = new ethers.Contract(NFT_POSITION_MANAGER, NFT_POSITION_MANAGER_ABI, signer);
@@ -391,6 +409,15 @@ class YieldMaxApp {
         
         const receipt = await tx.wait();
         console.log('✅ Transaction confirmée:', receipt.hash);
+        
+        // Rembourser tout ETH non utilisé
+        try {
+            const refundTx = await positionManager.refundETH();
+            await refundTx.wait();
+            console.log('💰 ETH non utilisé remboursé');
+        } catch (refundError) {
+            console.log('ℹ️ Pas d\'ETH à rembourser ou erreur de remboursement');
+        }
         
         // Ajouter à l'interface
         const newPosition = {
