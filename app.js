@@ -526,16 +526,35 @@ class YieldMaxApp {
         const NFT_POSITION_MANAGER = "0xC36442b4a4522E871399CD717aBDD847Ab11FE88";
         const positionManager = new ethers.Contract(NFT_POSITION_MANAGER, NFT_POSITION_MANAGER_ABI, signer);
         
+        // *** CORRECTION IMPORTANTE ***
+        // Quand on utilise ETH natif, on ne doit pas spécifier les montants WETH dans les paramètres
+        // Le contrat se charge automatiquement de la conversion ETH -> WETH
+        
+        let finalAmount0Desired, finalAmount1Desired;
+        let ethToSend = 0n;
+        
+        if (isToken0Stablecoin) {
+            // USDC est token0, WETH est token1
+            finalAmount0Desired = amount0Desired; // USDC
+            finalAmount1Desired = 0n; // ETH sera envoyé via value, pas amount1Desired
+            ethToSend = ethValue;
+        } else {
+            // WETH est token0, USDC est token1
+            finalAmount0Desired = 0n; // ETH sera envoyé via value, pas amount0Desired
+            finalAmount1Desired = amount1Desired; // USDC
+            ethToSend = ethValue;
+        }
+        
         const params = {
             token0,
             token1,
             fee: poolFee,
             tickLower,
             tickUpper,
-            amount0Desired,
-            amount1Desired,
-            amount0Min: amount0Desired * 95n / 100n, // 5% de slippage minimum
-            amount1Min: amount1Desired * 95n / 100n, // 5% de slippage minimum
+            amount0Desired: finalAmount0Desired,
+            amount1Desired: finalAmount1Desired,
+            amount0Min: finalAmount0Desired * 95n / 100n, // 5% de slippage minimum
+            amount1Min: finalAmount1Desired * 95n / 100n, // 5% de slippage minimum
             recipient: userAddress,
             deadline
         };
@@ -546,14 +565,15 @@ class YieldMaxApp {
             fee: poolFee,
             tickLower,
             tickUpper,
-            amount0Desired: amount0Desired.toString(),
-            amount1Desired: amount1Desired.toString(),
+            amount0Desired: finalAmount0Desired.toString(),
+            amount1Desired: finalAmount1Desired.toString(),
+            ethToSend: ethToSend.toString(),
             poolAddress
         });
         
         // Créer la position
         const tx = await positionManager.mint(params, {
-            value: ethValue, // Envoyer ETH (sera converti en WETH automatiquement)
+            value: ethToSend, // Envoyer ETH - sera automatiquement converti en WETH
             gasLimit: 5000000
         });
         
