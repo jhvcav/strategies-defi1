@@ -213,48 +213,40 @@ class YieldMaxApp {
         return;
     }
 
-    this.showLoadingModal('Test avec WETH...');
+    this.showLoadingModal('Création position directe...');
 
     try {
         const provider = new ethers.BrowserProvider(window.ethereum);
         const signer = await provider.getSigner();
         const userAddress = await signer.getAddress();
         
-        console.log("=== TEST SIMPLE AVEC WETH ===");
+        console.log("=== APPROCHE DIRECTE (sans conversion WETH) ===");
         
-        // 1. Convertir ETH en WETH d'abord
-        const WETH_ABI = [
-            "function deposit() payable",
-            "function approve(address spender, uint256 amount) returns (bool)"
-        ];
-        
-        const wethContract = new ethers.Contract(POLYGON_TOKENS.WETH, WETH_ABI, signer);
+        // Vérifier les soldes
+        const ethBalance = await provider.getBalance(userAddress);
         const ethValue = ethers.parseEther(ethAmount);
         
-        console.log('Conversion ETH -> WETH...');
-        const depositTx = await wethContract.deposit({ value: ethValue });
-        await depositTx.wait();
-        console.log('✅ WETH créé');
+        if (ethBalance < ethValue) {
+            this.hideLoadingModal();
+            alert(`Solde ETH insuffisant! Vous avez ${ethers.formatEther(ethBalance)} ETH`);
+            return;
+        }
         
-        // 2. Approuver WETH
-        const NFT_POSITION_MANAGER = "0xC36442b4a4522E871399CD717aBDD847Ab11FE88";
-        console.log('Approbation WETH...');
-        const approveWETHTx = await wethContract.approve(NFT_POSITION_MANAGER, ethValue);
-        await approveWETHTx.wait();
-        console.log('✅ WETH approuvé');
-        
-        // 3. Approuver USDC
+        // Approuver USDC seulement
         const usdcEquivalent = parseFloat(ethAmount) * 2500;
         const usdcRequired = ethers.parseUnits(usdcEquivalent.toString(), 6);
         
         const ERC20_ABI = ["function approve(address spender, uint256 amount) returns (bool)"];
         const usdcContract = new ethers.Contract(POLYGON_TOKENS.USDC, ERC20_ABI, signer);
+        
+        const NFT_POSITION_MANAGER = "0xC36442b4a4522E871399CD717aBDD847Ab11FE88";
+        
         console.log('Approbation USDC...');
         const approveUSDCTx = await usdcContract.approve(NFT_POSITION_MANAGER, usdcRequired);
         await approveUSDCTx.wait();
         console.log('✅ USDC approuvé');
         
-        // 4. Récupérer infos du pool
+        // Récupérer infos du pool
         const FACTORY_ADDRESS = "0x1F98431c8aD98523631AE4a59f267346ea31F984";
         const FACTORY_ABI = ["function getPool(address tokenA, address tokenB, uint24 fee) external view returns (address pool)"];
         const factory = new ethers.Contract(FACTORY_ADDRESS, FACTORY_ABI, provider);
@@ -265,45 +257,55 @@ class YieldMaxApp {
         const slot0 = await poolContract.slot0();
         const currentTick = slot0.tick;
         
-        // 5. Calculer ticks
+        // Calculer ticks
         const tickSpacing = 10;
         const tickRange = 5000;
         const tickLower = Math.floor((Number(currentTick) - tickRange) / tickSpacing) * tickSpacing;
         const tickUpper = Math.ceil((Number(currentTick) + tickRange) / tickSpacing) * tickSpacing;
         
+        console.log('Pool:', poolAddress);
+        console.log('Tick actuel:', currentTick.toString());
         console.log('Ticks:', tickLower, 'à', tickUpper);
         
-        // 6. Créer la position SANS ETH natif
+        // CORRECTION CLÉE: utiliser multicall avec unwrapWETH9
         const NFT_POSITION_MANAGER_ABI = [
-            "function mint(tuple(address token0, address token1, uint24 fee, int24 tickLower, int24 tickUpper, uint256 amount0Desired, uint256 amount1Desired, uint256 amount0Min, uint256 amount1Min, address recipient, uint256 deadline) params) external returns (uint256 tokenId, uint128 liquidity, uint256 amount0, uint256 amount1)"
+            "function mint(tuple(address token0, address token1, uint24 fee, int24 tickLower, int24 tickUpper, uint256 amount0Desired, uint256 amount1Desired, uint256 amount0Min, uint256 amount1Min, address recipient, uint256 deadline) params) external payable returns (uint256 tokenId, uint128 liquidity, uint256 amount0, uint256 amount1)",
+            "function multicall(bytes[] data) external payable returns (bytes[] results)",
+            "function refundETH() external payable"
         ];
         
         const positionManager = new ethers.Contract(NFT_POSITION_MANAGER, NFT_POSITION_MANAGER_ABI, signer);
         const deadline = Math.floor(Date.now() / 1000) + 1200;
         
-        const params = {
-            token0: POLYGON_TOKENS.USDC,  // Token0 (adresse plus petite)
-            token1: POLYGON_TOKENS.WETH,  // Token1 (adresse plus grande)
+        // Paramètres mint - CORRECTION: amount1Desired = 0 pour WETH car on envoie ETH
+        const mintParams = {
+            token0: POLYGON_TOKENS.USDC,  // USDC
+            token1: POLYGON_TOKENS.WETH,  // WETH
             fee: 500,
             tickLower,
             tickUpper,
-            amount0Desired: usdcRequired, // USDC
-            amount1Desired: ethValue,     // WETH (maintenant approuvé)
+            amount0Desired: usdcRequired, // USDC (approuvé)
+            amount1Desired: 0,            // WETH = 0 car on envoie ETH via value
             amount0Min: 0,
             amount1Min: 0,
             recipient: userAddress,
             deadline
         };
         
-        console.log('Paramètres finaux:', {
-            amount0: usdcEquivalent + ' USDC',
-            amount1: ethAmount + ' WETH',
+        console.log('🎯 Paramètres avec ETH natif:', {
+            amount0: usdcEquivalent + ' USDC (approuvé)',
+            amount1: '0 WETH (sera fourni via ETH natif)',
+            ethValue: ethAmount + ' ETH',
             ticks: `${tickLower} à ${tickUpper}`
         });
         
-        // Transaction SANS value (pas d'ETH natif)
-        const tx = await positionManager.mint(params, {
-            value: 0, // IMPORTANT: Pas d'ETH natif
+        // Encoder les calls pour multicall
+        const mintCall = positionManager.interface.encodeFunctionData("mint", [mintParams]);
+        const refundCall = positionManager.interface.encodeFunctionData("refundETH", []);
+        
+        // Transaction avec multicall (mint + refund ETH non utilisé)
+        const tx = await positionManager.multicall([mintCall, refundCall], {
+            value: ethValue, // ETH natif fourni ici
             gasLimit: 5000000
         });
         
@@ -313,7 +315,7 @@ class YieldMaxApp {
         console.log('✅ SUCCESS!', receipt.hash);
         
         this.hideLoadingModal();
-        alert(`🎉 SUCCÈS!\n\nTransaction: ${tx.hash}\n\nLa position a été créée avec WETH au lieu d'ETH natif!`);
+        alert(`🎉 SUCCÈS!\n\nTransaction: ${tx.hash}\n\nLa position a été créée avec ETH natif + USDC!`);
         
     } catch (error) {
         this.hideLoadingModal();
