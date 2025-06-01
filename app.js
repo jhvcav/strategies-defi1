@@ -403,7 +403,7 @@ class YieldMaxApp {
         const signer = await provider.getSigner();
         const userAddress = await signer.getAddress();
         
-        console.log("=== TEST POSITION USDC SEULEMENT ===");
+        console.log("=== TEST POSITION USDC SEULEMENT Avec Ticks Différents ===");
         
         // Configuration
         const usdcAmount = "50"; // 50 USDC seulement
