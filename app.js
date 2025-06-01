@@ -1,4 +1,5 @@
-// Définition des variables globales avec var pour éviter les erreurs de redéclaration
+console.log('🚀 DÉBUT app.js - Version simplifiée');
+
 // ===== CONTRACT CONFIGURATION =====
 var POLYGON_CONTRACTS = {
     STRATEGY_UNISWAP_V3: "0x669227b0bB3A6BFC717fe8bEA17EEF3cB37f5eBC"
@@ -6,11 +7,12 @@ var POLYGON_CONTRACTS = {
 
 var POLYGON_CHAIN_ID = 137;
 
-// Tokens Polygon - Addresses correctes et vérifiées
+// Tokens Polygon
 var POLYGON_TOKENS = {
     WETH: "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619",
     USDC: "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174",
-    WMATIC: "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270"
+    WMATIC: "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270",
+    WBTC: "0x1BFD67037B42Cf73acF2047067bd4F2C47D9BfD6"
 };
 
 // ABI simplifié pour les fonctions principales
@@ -22,33 +24,31 @@ var STRATEGY_ABI = [
     "function closePosition(uint256 tokenId) external"
 ];
 
-console.log('🚀 DÉBUT app.js');
-
-console.log('Définition de la classe YieldMaxApp...');
-
 // ===== GLOBAL STATE MANAGEMENT =====
 class YieldMaxApp {
     constructor() {
         this.walletConnected = false;
         this.currentAccount = null;
-        this.currentNetwork = 'ethereum';
+        this.currentNetwork = 'polygon'; // Défaut sur Polygon
         this.activeStrategy = 'uniswap';
         this.positions = [];
-        this.web3Provider = null;
         
         this.init();
+        console.log('YieldMaxApp initialized');
     }
 
     init() {
         this.setupEventListeners();
         this.updateUI();
-        this.startRealTimeUpdates();
     }
 
     // ===== WALLET CONNECTION =====
     async connectWallet() {
+        console.log('Tentative de connexion au wallet...');
+        
         try {
             if (typeof window.ethereum !== 'undefined') {
+                // Demander la connexion au wallet
                 const accounts = await window.ethereum.request({
                     method: 'eth_requestAccounts'
                 });
@@ -56,44 +56,116 @@ class YieldMaxApp {
                 this.currentAccount = accounts[0];
                 this.walletConnected = true;
                 
-                // Update UI
-                this.updateWalletUI();
-                this.loadUserPositions();
+                console.log('Wallet connecté:', this.currentAccount);
                 
-                console.log('Wallet connected:', this.currentAccount);
+                // Mettre à jour l'UI
+                this.updateWalletUI();
+                
+                // Vérifier et basculer vers Polygon si nécessaire
+                await this.switchToPolygon();
+                
+                // Charger les positions existantes
+                await this.loadUserPositions();
+                
             } else {
                 alert('MetaMask non détecté. Veuillez installer MetaMask.');
             }
         } catch (error) {
             console.error('Erreur de connexion wallet:', error);
-            alert('Erreur lors de la connexion au wallet');
+            alert('Erreur lors de la connexion au wallet: ' + (error.message || 'Erreur inconnue'));
+        }
+    }
+
+    async switchToPolygon() {
+        try {
+            // Vérifier la chaîne actuelle
+            const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+            const currentChainId = parseInt(chainId, 16);
+            
+            console.log('Chaîne actuelle:', currentChainId);
+            
+            // Si ce n'est pas Polygon, demander à changer
+            if (currentChainId !== POLYGON_CHAIN_ID) {
+                console.log('Changement vers Polygon...');
+                
+                try {
+                    await window.ethereum.request({
+                        method: 'wallet_switchEthereumChain',
+                        params: [{ chainId: '0x89' }] // Polygon chainId en hex
+                    });
+                    
+                    console.log('Basculé sur Polygon');
+                    document.getElementById('networkSelect').value = 'polygon';
+                    this.currentNetwork = 'polygon';
+                    
+                } catch (switchError) {
+                    // Si la chaîne n'est pas ajoutée, proposer de l'ajouter
+                    if (switchError.code === 4902) {
+                        try {
+                            await window.ethereum.request({
+                                method: 'wallet_addEthereumChain',
+                                params: [{
+                                    chainId: '0x89',
+                                    chainName: 'Polygon Mainnet',
+                                    nativeCurrency: {
+                                        name: 'MATIC',
+                                        symbol: 'MATIC',
+                                        decimals: 18
+                                    },
+                                    rpcUrls: ['https://polygon-rpc.com'],
+                                    blockExplorerUrls: ['https://polygonscan.com']
+                                }]
+                            });
+                            
+                            console.log('Réseau Polygon ajouté');
+                            document.getElementById('networkSelect').value = 'polygon';
+                            this.currentNetwork = 'polygon';
+                            
+                        } catch (addError) {
+                            console.error('Erreur lors de l\'ajout du réseau Polygon:', addError);
+                        }
+                    } else {
+                        console.error('Erreur lors du changement de réseau:', switchError);
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Erreur lors de la vérification du réseau:', error);
         }
     }
 
     updateWalletUI() {
         const walletBtn = document.getElementById('connectWallet');
-        if (this.walletConnected) {
+        if (this.walletConnected && this.currentAccount) {
             walletBtn.innerHTML = `
                 <i class="fas fa-check-circle"></i>
                 ${this.currentAccount.slice(0, 6)}...${this.currentAccount.slice(-4)}
             `;
             walletBtn.classList.add('connected');
+        } else {
+            walletBtn.innerHTML = `
+                <i class="fas fa-wallet"></i>
+                Connecter Wallet
+            `;
+            walletBtn.classList.remove('connected');
         }
     }
 
     // ===== STRATEGY MANAGEMENT =====
     switchStrategy(strategyName) {
-        // Hide all strategy contents
+        console.log('Changement de stratégie vers:', strategyName);
+        
+        // Masquer tous les contenus de stratégie
         document.querySelectorAll('.strategy-content').forEach(content => {
             content.classList.remove('active');
         });
 
-        // Remove active class from all tabs
+        // Supprimer la classe active de tous les onglets
         document.querySelectorAll('.tab-btn').forEach(tab => {
             tab.classList.remove('active');
         });
 
-        // Show selected strategy
+        // Afficher la stratégie sélectionnée
         document.getElementById(`${strategyName}-strategy`).classList.add('active');
         document.querySelector(`[data-strategy="${strategyName}"]`).classList.add('active');
         
@@ -103,7 +175,7 @@ class YieldMaxApp {
 
     // ===== UNISWAP V3 STRATEGY =====
     updateUniswapMetrics() {
-        const ethAmount = parseFloat(document.getElementById('ethAmount').value) || 0;
+        const ethAmount = parseFloat(document.getElementById('ethAmount')?.value) || 0;
         const selectedRange = document.querySelector('.range-btn.active')?.dataset.range || 10;
         
         if (ethAmount > 0) {
@@ -114,23 +186,43 @@ class YieldMaxApp {
             const dailyFees = (ethAmount * 0.0012 * rangeMultiplier).toFixed(2);
             const impermanentLoss = selectedRange === '5' ? 2.1 : selectedRange === '10' ? 1.5 : 0.8;
 
-            // Update UI
-            document.querySelector('#uniswap-strategy .highlight').textContent = `${estimatedAPR}%`;
-            document.querySelector('#uniswap-strategy .yield-metrics .metric:nth-child(2) strong').textContent = `$${dailyFees}`;
-            document.querySelector('#uniswap-strategy .warning').textContent = `-${impermanentLoss}%`;
+            // Mettre à jour l'UI
+            const aprElement = document.querySelector('#uniswap-strategy .highlight');
+            const feesElement = document.querySelector('#uniswap-strategy .yield-metrics .metric:nth-child(2) strong');
+            const ilElement = document.querySelector('#uniswap-strategy .warning');
+            
+            if (aprElement) aprElement.textContent = `${estimatedAPR}%`;
+            if (feesElement) feesElement.textContent = `$${dailyFees}`;
+            if (ilElement) ilElement.textContent = `-${impermanentLoss}%`;
         }
     }
 
     async deployUniswapStrategy() {
+        console.log('Début du déploiement de la stratégie Uniswap...');
+        
         if (!this.walletConnected) {
             alert('Veuillez connecter votre wallet');
             return;
         }
 
         // Vérifier qu'on est sur Polygon
-        const chainId = await window.ethereum.request({ method: 'eth_chainId' });
-        if (parseInt(chainId, 16) !== POLYGON_CHAIN_ID) {
-            alert('Veuillez vous connecter au réseau Polygon');
+        try {
+            const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+            const currentChainId = parseInt(chainId, 16);
+            
+            console.log('Chaîne actuelle pour le déploiement:', currentChainId);
+            
+            if (currentChainId !== POLYGON_CHAIN_ID) {
+                const confirmSwitch = confirm('Cette stratégie nécessite le réseau Polygon. Voulez-vous changer de réseau?');
+                if (confirmSwitch) {
+                    await this.switchToPolygon();
+                } else {
+                    return;
+                }
+            }
+        } catch (error) {
+            console.error('Erreur lors de la vérification du réseau:', error);
+            alert('Impossible de vérifier le réseau actuel');
             return;
         }
 
@@ -138,7 +230,7 @@ class YieldMaxApp {
         const selectedPool = document.getElementById('poolSelect').value;
         const selectedRange = document.querySelector('.range-btn.active')?.dataset.range || 10;
         
-        if (!ethAmount || ethAmount <= 0) {
+        if (!ethAmount || parseFloat(ethAmount) <= 0) {
             alert('Veuillez entrer un montant valide');
             return;
         }
@@ -147,19 +239,18 @@ class YieldMaxApp {
 
         try {
             // Configuration des tokens selon le pool
-            let token0, token1, swapTokens = false;
+            let token0, token1;
+            console.log('Pool sélectionné:', selectedPool);
             
             switch(selectedPool) {
                 case 'weth-usdc':
-                    // Pour Uniswap V3, l'ordre des tokens est important (doivent être dans l'ordre croissant d'adresse)
-                    // Comparons les adresses pour déterminer l'ordre correct
+                    // Pour Uniswap V3, l'ordre des tokens doit être déterminé par leur adresse
                     if (POLYGON_TOKENS.WETH.toLowerCase() < POLYGON_TOKENS.USDC.toLowerCase()) {
                         token0 = POLYGON_TOKENS.WETH;
                         token1 = POLYGON_TOKENS.USDC;
                     } else {
                         token0 = POLYGON_TOKENS.USDC;
                         token1 = POLYGON_TOKENS.WETH;
-                        swapTokens = true;
                     }
                     break;
                 case 'matic-usdc':
@@ -169,37 +260,47 @@ class YieldMaxApp {
                     } else {
                         token0 = POLYGON_TOKENS.USDC;
                         token1 = POLYGON_TOKENS.WMATIC;
-                        swapTokens = true;
                     }
                     break;
                 case 'wbtc-eth':
-                    // Implémentation pour WBTC/ETH...
-                    token0 = "0x1BFD67037B42Cf73acF2047067bd4F2C47D9BfD6"; // WBTC
-                    token1 = POLYGON_TOKENS.WETH;
+                    if (POLYGON_TOKENS.WBTC.toLowerCase() < POLYGON_TOKENS.WETH.toLowerCase()) {
+                        token0 = POLYGON_TOKENS.WBTC;
+                        token1 = POLYGON_TOKENS.WETH;
+                    } else {
+                        token0 = POLYGON_TOKENS.WETH;
+                        token1 = POLYGON_TOKENS.WBTC;
+                    }
                     break;
                 case 'matic-eth':
-                    // Implémentation pour MATIC/ETH...
-                    token0 = POLYGON_TOKENS.WMATIC;
-                    token1 = POLYGON_TOKENS.WETH;
+                    if (POLYGON_TOKENS.WMATIC.toLowerCase() < POLYGON_TOKENS.WETH.toLowerCase()) {
+                        token0 = POLYGON_TOKENS.WMATIC;
+                        token1 = POLYGON_TOKENS.WETH;
+                    } else {
+                        token0 = POLYGON_TOKENS.WETH;
+                        token1 = POLYGON_TOKENS.WMATIC;
+                    }
                     break;
                 default:
-                    if (POLYGON_TOKENS.WETH.toLowerCase() < POLYGON_TOKENS.USDC.toLowerCase()) {
-                        token0 = POLYGON_TOKENS.WETH;
-                        token1 = POLYGON_TOKENS.USDC;
-                    } else {
-                        token0 = POLYGON_TOKENS.USDC;
-                        token1 = POLYGON_TOKENS.WETH;
-                        swapTokens = true;
-                    }
+                    token0 = POLYGON_TOKENS.WETH;
+                    token1 = POLYGON_TOKENS.USDC;
             }
+
+            // Déterminer si le token d'entrée est token0 ou token1
+            const isToken0Input = token0.toLowerCase() === POLYGON_TOKENS.WETH.toLowerCase();
+            
+            console.log('Adresses de tokens:', {
+                token0,
+                token1,
+                isToken0Input
+            });
 
             // Initialiser ethers
             const provider = new ethers.BrowserProvider(window.ethereum);
             const signer = await provider.getSigner();
 
             // Paramètres pour la transaction
-            const amount0Desired = swapTokens ? ethers.parseUnits("0", 6) : ethers.parseEther(ethAmount);
-            const amount1Desired = swapTokens ? ethers.parseEther(ethAmount) : ethers.parseUnits("0", 6);
+            const amount0Desired = isToken0Input ? ethers.parseEther(ethAmount) : ethers.parseUnits("0", 6);
+            const amount1Desired = isToken0Input ? ethers.parseUnits("0", 6) : ethers.parseEther(ethAmount);
             const rangePercentage = parseInt(selectedRange) * 100; // 10% = 1000
 
             console.log('Paramètres transaction:', {
@@ -209,8 +310,7 @@ class YieldMaxApp {
                 rangePercentage,
                 amount0Desired: amount0Desired.toString(),
                 amount1Desired: amount1Desired.toString(),
-                swapTokens: swapTokens,
-                value: swapTokens ? amount1Desired.toString() : amount0Desired.toString()
+                value: ethers.parseEther(ethAmount).toString()
             });
 
             // Créer l'instance du contrat
@@ -229,8 +329,8 @@ class YieldMaxApp {
                 amount0Desired,
                 amount1Desired,
                 {
-                    value: swapTokens ? amount1Desired : amount0Desired, // Envoyer ETH au bon endroit
-                    gasLimit: 800000 // Augmentation de la limite de gas
+                    value: ethers.parseEther(ethAmount), // Envoyer ETH
+                    gasLimit: 1000000 // Limite de gas augmentée
                 }
             );
 
@@ -240,13 +340,13 @@ class YieldMaxApp {
             const receipt = await tx.wait();
             console.log('Transaction confirmée:', receipt);
 
-            // Récupérer le tokenId du log
-            const tokenId = receipt.logs[0]?.topics[1]; // Simplifié
+            // Récupérer le tokenId du log (simplifié)
+            const tokenId = receipt.logs[0]?.topics[1] || "N/A"; 
             
             // Ajouter la position à l'UI
             const newPosition = {
                 id: Date.now(),
-                strategy: 'Uniswap V3 (Real)',
+                strategy: 'Uniswap V3',
                 pool: selectedPool.toUpperCase(),
                 amount: `${ethAmount} ETH`,
                 apr: '78.5%',
@@ -263,31 +363,35 @@ class YieldMaxApp {
             
             alert(`✅ Position créée avec succès!
             
-📄 Transaction: ${receipt.hash}
+📄 Transaction: ${tx.hash}
 🏷️ Token ID: ${tokenId}
 💰 Montant: ${ethAmount} ETH
-🔗 Voir sur PolygonScan: https://polygonscan.com/tx/${receipt.hash}`);
+🔗 Voir sur PolygonScan: https://polygonscan.com/tx/${tx.hash}`);
             
         } catch (error) {
             this.hideLoadingModal();
             console.error('Erreur transaction:', error);
             
+            // Afficher un message d'erreur plus détaillé
             if (error.code === 4001) {
                 alert('Transaction annulée par l\'utilisateur');
             } else if (error.code === -32603) {
                 alert('Erreur de gas - Augmentez la limite ou vérifiez vos fonds');
             } else {
-                alert(`Erreur: ${error.message}`);
+                alert(`Erreur de transaction: ${error.message || 'Erreur inconnue'}`);
             }
         }
     }
 
     // ===== AAVE STRATEGY =====
     updateAaveMetrics() {
-        const collateralAmount = parseFloat(document.getElementById('collateralAmount').value) || 0;
-        const leverage = parseFloat(document.getElementById('leverageRange').value) || 2;
+        const collateralAmount = parseFloat(document.getElementById('collateralAmount')?.value) || 0;
+        const leverage = parseFloat(document.getElementById('leverageRange')?.value) || 2;
         
-        document.getElementById('leverageValue').textContent = `${leverage.toFixed(1)}x`;
+        const leverageValueElement = document.getElementById('leverageValue');
+        if (leverageValueElement) {
+            leverageValueElement.textContent = `${leverage.toFixed(1)}x`;
+        }
         
         if (collateralAmount > 0) {
             // Calculs simulés
@@ -296,10 +400,14 @@ class YieldMaxApp {
             const healthFactor = (4 / leverage).toFixed(2);
             const liquidationPrice = (2000 / leverage * 0.85).toFixed(0);
 
-            // Update UI
-            document.querySelector('#aave-strategy .highlight').textContent = `${leveragedAPR}%`;
-            document.querySelector('#aave-strategy .safe').textContent = healthFactor;
-            document.querySelector('#aave-strategy .warning').textContent = `$${liquidationPrice}`;
+            // Mettre à jour l'UI
+            const aprElement = document.querySelector('#aave-strategy .highlight');
+            const healthElement = document.querySelector('#aave-strategy .safe');
+            const liqElement = document.querySelector('#aave-strategy .warning');
+            
+            if (aprElement) aprElement.textContent = `${leveragedAPR}%`;
+            if (healthElement) healthElement.textContent = healthFactor;
+            if (liqElement) liqElement.textContent = `$${liquidationPrice}`;
         }
     }
 
@@ -312,7 +420,7 @@ class YieldMaxApp {
         const collateralAmount = document.getElementById('collateralAmount').value;
         const leverage = document.getElementById('leverageRange').value;
         
-        if (!collateralAmount || collateralAmount <= 0) {
+        if (!collateralAmount || parseFloat(collateralAmount) <= 0) {
             alert('Veuillez entrer un montant valide');
             return;
         }
@@ -320,7 +428,8 @@ class YieldMaxApp {
         this.showLoadingModal('Déploiement de la stratégie Aave...');
 
         try {
-            await this.simulateTransaction(4000);
+            // Simulation temporisée
+            await new Promise(resolve => setTimeout(resolve, 4000));
             
             const newPosition = {
                 id: Date.now(),
@@ -355,9 +464,10 @@ class YieldMaxApp {
         this.showLoadingModal('Exécution du Flash Loan...');
 
         try {
-            await this.simulateTransaction(2000);
+            // Simulation temporisée
+            await new Promise(resolve => setTimeout(resolve, 2000));
             
-            // Simulate profit
+            // Simuler un profit
             const profit = Math.random() * 100 + 20;
             
             alert(`Flash Loan exécuté avec succès! Profit: $${profit.toFixed(2)}`);
@@ -372,6 +482,11 @@ class YieldMaxApp {
     // ===== UI UPDATES =====
     updatePositionsTable() {
         const tableBody = document.getElementById('positionsTableBody');
+        
+        if (!tableBody) {
+            console.error('Élément positionsTableBody non trouvé');
+            return;
+        }
         
         if (this.positions.length === 0) {
             tableBody.innerHTML = `
@@ -400,35 +515,42 @@ class YieldMaxApp {
     }
 
     updateDashboardStats() {
+        // Calculer les statistiques du portefeuille
         const totalValue = this.positions.reduce((sum, pos) => {
-            return sum + parseFloat(pos.amount.split(' ')[0]) * 2000; // Estimation ETH price
+            const amount = parseFloat(pos.amount.split(' ')[0]) || 0;
+            return sum + amount * 2000; // Estimation prix ETH à 2000$
         }, 0);
 
-        const dailyYield = totalValue * 0.002; // 0.2% daily estimation
+        const dailyYield = totalValue * 0.002; // Estimation 0.2% rendement quotidien
         const avgAPR = this.positions.length > 0 ? 
-            this.positions.reduce((sum, pos) => sum + parseFloat(pos.apr), 0) / this.positions.length : 0;
+            this.positions.reduce((sum, pos) => sum + parseFloat(pos.apr) || 0, 0) / this.positions.length : 0;
 
-        // Update stats cards
-        document.querySelector('.stat-card:nth-child(1) .stat-value').textContent = `$${totalValue.toFixed(2)}`;
-        document.querySelector('.stat-card:nth-child(2) .stat-value').textContent = `$${dailyYield.toFixed(2)}`;
-        document.querySelector('.stat-card:nth-child(3) .stat-value').textContent = `${avgAPR.toFixed(1)}%`;
-        document.querySelector('.stat-card:nth-child(4) .stat-value').textContent = this.positions.length;
+        // Mettre à jour les cartes de statistiques
+        const valueElement = document.querySelector('.stat-card:nth-child(1) .stat-value');
+        const yieldElement = document.querySelector('.stat-card:nth-child(2) .stat-value');
+        const aprElement = document.querySelector('.stat-card:nth-child(3) .stat-value');
+        const positionsElement = document.querySelector('.stat-card:nth-child(4) .stat-value');
+        
+        if (valueElement) valueElement.textContent = `$${totalValue.toFixed(2)}`;
+        if (yieldElement) yieldElement.textContent = `$${dailyYield.toFixed(2)}`;
+        if (aprElement) aprElement.textContent = `${avgAPR.toFixed(1)}%`;
+        if (positionsElement) positionsElement.textContent = this.positions.length;
     }
 
     // ===== UTILITY FUNCTIONS =====
     showLoadingModal(message) {
         const modal = document.getElementById('loadingModal');
+        if (!modal) return;
+        
         const messageElement = modal.querySelector('p');
-        messageElement.textContent = message;
+        if (messageElement) messageElement.textContent = message;
+        
         modal.classList.add('active');
     }
 
     hideLoadingModal() {
-        document.getElementById('loadingModal').classList.remove('active');
-    }
-
-    async simulateTransaction(delay) {
-        return new Promise(resolve => setTimeout(resolve, delay));
+        const modal = document.getElementById('loadingModal');
+        if (modal) modal.classList.remove('active');
     }
 
     closePosition(positionId) {
@@ -454,16 +576,18 @@ class YieldMaxApp {
             console.log('Positions du contrat:', positions);
 
             // Convertir en format UI
-            this.positions = positions.filter(pos => pos.active).map(pos => ({
-                id: pos.tokenId.toString(),
-                strategy: 'Uniswap V3',
-                pool: 'ETH/USDC',
-                amount: `${ethers.formatEther(pos.amount0Deposited)} ETH`,
-                apr: '78.5%',
-                pnl: '+0.00%',
-                status: 'active',
-                tokenId: pos.tokenId.toString()
-            }));
+            this.positions = positions
+                .filter(pos => pos.active)
+                .map(pos => ({
+                    id: pos.tokenId.toString(),
+                    strategy: 'Uniswap V3',
+                    pool: 'ETH/USDC',
+                    amount: `${ethers.formatEther(pos.amount0Deposited)} ETH`,
+                    apr: '78.5%',
+                    pnl: '+0.00%',
+                    status: 'active',
+                    tokenId: pos.tokenId.toString()
+                }));
 
             this.updatePositionsTable();
             this.updateDashboardStats();
@@ -471,14 +595,6 @@ class YieldMaxApp {
         } catch (error) {
             console.error('Erreur lors du chargement des positions:', error);
         }
-    }
-
-    startRealTimeUpdates() {
-        // Update metrics every 30 seconds
-        setInterval(() => {
-            this.updateStrategyMetrics();
-            this.generateArbitrageOpportunities();
-        }, 30000);
     }
 
     updateStrategyMetrics() {
@@ -493,7 +609,7 @@ class YieldMaxApp {
     }
 
     generateArbitrageOpportunities() {
-        // Simulate real-time arbitrage opportunities
+        // Simuler des opportunités d'arbitrage en temps réel
         const opportunities = [
             {
                 pair: 'ETH/USDC',
@@ -522,7 +638,7 @@ class YieldMaxApp {
                         <span class="exchanges">${opp.exchanges}</span>
                     </div>
                     <div class="opportunity-profit">
-                        <span class="profit-amount">+${opp.profit}</span>
+                        <span class="profit-amount">+$${opp.profit}</span>
                         <span class="profit-percentage">${opp.percentage}%</span>
                     </div>
                     <button class="execute-btn" onclick="app.executeFlashLoan('${opp.pair}')">
@@ -533,8 +649,168 @@ class YieldMaxApp {
         }
     }
 
-    // ===== NETWORK MANAGEMENT =====
+    // ===== EVENT LISTENERS SETUP =====
+    setupEventListeners() {
+        // Connexion wallet
+        const walletBtn = document.getElementById('connectWallet');
+        if (walletBtn) {
+            walletBtn.addEventListener('click', () => {
+                this.connectWallet();
+            });
+        }
+
+        // Sélection du réseau
+        const networkSelect = document.getElementById('networkSelect');
+        if (networkSelect) {
+            networkSelect.addEventListener('change', (e) => {
+                this.switchNetwork(e.target.value);
+            });
+        }
+
+        // Onglets de stratégie
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const strategy = e.currentTarget.dataset.strategy;
+                this.switchStrategy(strategy);
+            });
+        });
+
+        // Boutons de sélection de range
+        document.querySelectorAll('.range-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
+                e.currentTarget.classList.add('active');
+                this.updateUniswapMetrics();
+            });
+        });
+
+        // Changements d'input pour mises à jour en temps réel
+        const ethAmountInput = document.getElementById('ethAmount');
+        if (ethAmountInput) {
+            ethAmountInput.addEventListener('input', () => {
+                this.updateUniswapMetrics();
+            });
+        }
+
+        const collateralAmountInput = document.getElementById('collateralAmount');
+        if (collateralAmountInput) {
+            collateralAmountInput.addEventListener('input', () => {
+                this.updateAaveMetrics();
+            });
+        }
+
+        const leverageRangeInput = document.getElementById('leverageRange');
+        if (leverageRangeInput) {
+            leverageRangeInput.addEventListener('input', () => {
+                this.updateAaveMetrics();
+            });
+        }
+
+        // Boutons de déploiement de stratégie
+        const uniswapBtn = document.querySelector('#uniswap-strategy .strategy-btn');
+        if (uniswapBtn) {
+            uniswapBtn.addEventListener('click', () => {
+                this.deployUniswapStrategy();
+            });
+        }
+
+        const aaveBtn = document.querySelector('#aave-strategy .strategy-btn');
+        if (aaveBtn) {
+            aaveBtn.addEventListener('click', () => {
+                this.deployAaveStrategy();
+            });
+        }
+
+        const flashloanBtn = document.querySelector('#flashloan-strategy .strategy-btn');
+        if (flashloanBtn) {
+            flashloanBtn.addEventListener('click', () => {
+                const flashAmount = document.getElementById('flashAmount')?.value;
+                if (flashAmount && parseFloat(flashAmount) > 0) {
+                    this.executeFlashLoan('manual');
+                } else {
+                    alert('Veuillez entrer un montant valide pour le Flash Loan');
+                }
+            });
+        }
+
+        // Changement de sélection de pool
+        const poolSelect = document.getElementById('poolSelect');
+        if (poolSelect) {
+            poolSelect.addEventListener('change', () => {
+                this.updateUniswapMetrics();
+            });
+        }
+
+        // Fermeture du modal en cliquant à l'extérieur
+        const loadingModal = document.getElementById('loadingModal');
+        if (loadingModal) {
+            loadingModal.addEventListener('click', (e) => {
+                if (e.target === e.currentTarget) {
+                    this.hideLoadingModal();
+                }
+            });
+        }
+
+        // Raccourcis clavier
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                this.hideLoadingModal();
+            }
+        });
+
+        // Événements de fenêtre
+        window.addEventListener('load', () => {
+            this.checkWalletConnection();
+        });
+
+        // Événements du wallet
+        if (window.ethereum) {
+            window.ethereum.on('accountsChanged', (accounts) => {
+                console.log('Compte wallet changé:', accounts);
+                
+                if (accounts.length === 0) {
+                    this.walletConnected = false;
+                    this.currentAccount = null;
+                    this.updateWalletUI();
+                } else {
+                    this.currentAccount = accounts[0];
+                    this.walletConnected = true;
+                    this.updateWalletUI();
+                    this.loadUserPositions();
+                }
+            });
+
+            window.ethereum.on('chainChanged', (chainId) => {
+                console.log('Réseau changé:', chainId);
+                const currentChainId = parseInt(chainId, 16);
+                
+                if (currentChainId === POLYGON_CHAIN_ID) {
+                    document.getElementById('networkSelect').value = 'polygon';
+                    this.currentNetwork = 'polygon';
+                } else {
+                    // Mettre à jour le sélecteur de réseau si possible
+                    switch(currentChainId) {
+                        case 1:
+                            document.getElementById('networkSelect').value = 'ethereum';
+                            this.currentNetwork = 'ethereum';
+                            break;
+                        case 56:
+                            document.getElementById('networkSelect').value = 'bsc';
+                            this.currentNetwork = 'bsc';
+                            break;
+                        case 42161:
+                            document.getElementById('networkSelect').value = 'arbitrum';
+                            this.currentNetwork = 'arbitrum';
+                            break;
+                    }
+                }
+            });
+        }
+    }
+
     async switchNetwork(networkName) {
+        console.log('Tentative de changement vers le réseau:', networkName);
+        
         const networkConfigs = {
             ethereum: {
                 chainId: '0x1',
@@ -566,117 +842,32 @@ class YieldMaxApp {
                 });
                 
                 this.currentNetwork = networkName;
-                console.log(`Switched to ${networkName}`);
+                console.log(`Basculé sur ${networkName}`);
             }
         } catch (error) {
-            console.error('Network switch error:', error);
-        }
-    }
-
-    // ===== EVENT LISTENERS SETUP =====
-    setupEventListeners() {
-        // Wallet connection
-        document.getElementById('connectWallet').addEventListener('click', () => {
-            this.connectWallet();
-        });
-
-        // Network selection
-        document.getElementById('networkSelect').addEventListener('change', (e) => {
-            this.switchNetwork(e.target.value);
-        });
-
-        // Strategy tabs
-        document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const strategy = e.currentTarget.dataset.strategy;
-                this.switchStrategy(strategy);
-            });
-        });
-
-        // Range selector buttons
-        document.querySelectorAll('.range-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                document.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
-                e.currentTarget.classList.add('active');
-                this.updateUniswapMetrics();
-            });
-        });
-
-        // Input changes for real-time updates
-        document.getElementById('ethAmount')?.addEventListener('input', () => {
-            this.updateUniswapMetrics();
-        });
-
-        document.getElementById('collateralAmount')?.addEventListener('input', () => {
-            this.updateAaveMetrics();
-        });
-
-        document.getElementById('leverageRange')?.addEventListener('input', () => {
-            this.updateAaveMetrics();
-        });
-
-        // Strategy deployment buttons
-        document.querySelector('#uniswap-strategy .strategy-btn')?.addEventListener('click', () => {
-            this.deployUniswapStrategy();
-        });
-
-        document.querySelector('#aave-strategy .strategy-btn')?.addEventListener('click', () => {
-            this.deployAaveStrategy();
-        });
-
-        document.querySelector('#flashloan-strategy .strategy-btn')?.addEventListener('click', () => {
-            const flashAmount = document.getElementById('flashAmount').value;
-            if (flashAmount && flashAmount > 0) {
-                this.executeFlashLoan('manual');
-            } else {
-                alert('Veuillez entrer un montant valide pour le Flash Loan');
-            }
-        });
-
-        // Pool selection change
-        document.getElementById('poolSelect')?.addEventListener('change', () => {
-            this.updateUniswapMetrics();
-        });
-
-        // Modal close on outside click
-        document.getElementById('loadingModal')?.addEventListener('click', (e) => {
-            if (e.target === e.currentTarget) {
-                this.hideLoadingModal();
-            }
-        });
-
-        // Keyboard shortcuts
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                this.hideLoadingModal();
-            }
-        });
-
-        // Window events
-        window.addEventListener('load', () => {
-            this.checkWalletConnection();
-        });
-
-        // Wallet events
-        if (window.ethereum) {
-            window.ethereum.on('accountsChanged', (accounts) => {
-                if (accounts.length === 0) {
-                    this.walletConnected = false;
-                    this.currentAccount = null;
-                    this.updateWalletUI();
-                } else {
-                    this.currentAccount = accounts[0];
-                    this.updateWalletUI();
+            console.error('Erreur de changement de réseau:', error);
+            
+            // Si le réseau n'est pas configuré, proposer de l'ajouter
+            if (error.code === 4902) {
+                try {
+                    await window.ethereum.request({
+                        method: 'wallet_addEthereumChain',
+                        params: [{
+                            chainId: networkConfigs[networkName].chainId,
+                            chainName: networkConfigs[networkName].chainName,
+                            rpcUrls: networkConfigs[networkName].rpcUrls
+                        }]
+                    });
+                } catch (addError) {
+                    console.error('Erreur lors de l\'ajout du réseau:', addError);
                 }
-            });
-
-            window.ethereum.on('chainChanged', (chainId) => {
-                window.location.reload();
-            });
+            }
         }
     }
 
     async checkWalletConnection() {
+        console.log('Vérification de la connexion du wallet...');
+        
         if (window.ethereum) {
             try {
                 const accounts = await window.ethereum.request({
@@ -687,89 +878,28 @@ class YieldMaxApp {
                     this.currentAccount = accounts[0];
                     this.walletConnected = true;
                     this.updateWalletUI();
+                    
+                    // Vérifier le réseau actuel
+                    const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+                    const currentChainId = parseInt(chainId, 16);
+                    
+                    console.log('Réseau actuel au chargement:', currentChainId);
+                    
+                    if (currentChainId === POLYGON_CHAIN_ID) {
+                        document.getElementById('networkSelect').value = 'polygon';
+                        this.currentNetwork = 'polygon';
+                    }
+                    
                     this.loadUserPositions();
+                } else {
+                    console.log('Aucun compte connecté');
                 }
             } catch (error) {
-                console.error('Error checking wallet connection:', error);
+                console.error('Erreur lors de la vérification de la connexion wallet:', error);
             }
+        } else {
+            console.log('MetaMask non détecté');
         }
-    }
-
-    // ===== ANIMATION HELPERS =====
-    animateNumber(element, start, end, duration = 1000) {
-        const startTime = performance.now();
-        const difference = end - start;
-
-        const animate = (currentTime) => {
-            const elapsed = currentTime - startTime;
-            const progress = Math.min(elapsed / duration, 1);
-            
-            const current = start + (difference * this.easeOutCubic(progress));
-            element.textContent = current.toFixed(2);
-            
-            if (progress < 1) {
-                requestAnimationFrame(animate);
-            }
-        };
-        
-        requestAnimationFrame(animate);
-    }
-
-    easeOutCubic(t) {
-        return 1 - Math.pow(1 - t, 3);
-    }
-
-    // ===== DATA PERSISTENCE =====
-    saveToLocalStorage() {
-        const data = {
-            positions: this.positions,
-            currentNetwork: this.currentNetwork,
-            lastUpdate: Date.now()
-        };
-        localStorage.setItem('yieldmax_data', JSON.stringify(data));
-    }
-
-    loadFromLocalStorage() {
-        try {
-            const data = JSON.parse(localStorage.getItem('yieldmax_data'));
-            if (data) {
-                this.positions = data.positions || [];
-                this.currentNetwork = data.currentNetwork || 'ethereum';
-                this.updatePositionsTable();
-                this.updateDashboardStats();
-            }
-        } catch (error) {
-            console.error('Error loading from localStorage:', error);
-        }
-    }
-
-    // ===== API HELPERS =====
-    async fetchPoolData(poolAddress) {
-        // Simulate API call to fetch real pool data
-        try {
-            // In real implementation, this would call Uniswap subgraph or similar
-            const mockData = {
-                tvl: Math.random() * 10000000,
-                volume24h: Math.random() * 1000000,
-                feeTier: 0.3,
-                token0Price: Math.random() * 3000,
-                token1Price: 1
-            };
-            
-            return mockData;
-        } catch (error) {
-            console.error('Error fetching pool data:', error);
-            return null;
-        }
-    }
-
-    async fetchGasPrice() {
-        // Simulate gas price fetch
-        return {
-            slow: 20,
-            standard: 25,
-            fast: 35
-        };
     }
 
     // ===== NOTIFICATION SYSTEM =====
@@ -788,7 +918,7 @@ class YieldMaxApp {
         
         document.body.appendChild(notification);
         
-        // Auto remove after 5 seconds
+        // Suppression automatique après 5 secondes
         setTimeout(() => {
             if (notification.parentElement) {
                 notification.remove();
@@ -798,9 +928,9 @@ class YieldMaxApp {
 
     // ===== INITIALIZATION =====
     updateUI() {
-        this.loadFromLocalStorage();
         this.updateDashboardStats();
         this.generateArbitrageOpportunities();
+        this.updateStrategyMetrics();
     }
 }
 
@@ -809,7 +939,6 @@ let app;
 
 document.addEventListener('DOMContentLoaded', () => {
     app = new YieldMaxApp();
-    console.log('YieldMax App initialized');
 });
 
 // ===== GLOBAL HELPER FUNCTIONS =====
@@ -834,24 +963,23 @@ function shortenAddress(address) {
 
 function copyToClipboard(text) {
     navigator.clipboard.writeText(text).then(() => {
-        app.showNotification('Copié dans le presse-papier!', 'success');
+        if (app) app.showNotification('Copié dans le presse-papier!', 'success');
     }).catch(() => {
-        app.showNotification('Erreur lors de la copie', 'error');
+        if (app) app.showNotification('Erreur lors de la copie', 'error');
     });
 }   
 
-console.log('🏁 FIN app.js');
-
+console.log('🏁 FIN app.js - Version simplifiée');
 
 // ===== ERROR HANDLING =====
 window.addEventListener('error', (event) => {
-    console.error('Global error:', event.error);
-    app?.showNotification('Une erreur est survenue', 'error');
+    console.error('Erreur globale:', event.error);
+    if (app) app.showNotification('Une erreur est survenue', 'error');
 });
 
 window.addEventListener('unhandledrejection', (event) => {
-    console.error('Unhandled promise rejection:', event.reason);
-    app?.showNotification('Erreur de connexion', 'error');
+    console.error('Promesse rejetée non gérée:', event.reason);
+    if (app) app.showNotification('Erreur de connexion', 'error');
 });
 
 // ===== PERFORMANCE MONITORING =====
@@ -860,7 +988,7 @@ if ('performance' in window) {
         setTimeout(() => {
             const perfData = performance.timing;
             const loadTime = perfData.loadEventEnd - perfData.navigationStart;
-            console.log(`Page load time: ${loadTime}ms`);
+            console.log(`Temps de chargement de la page: ${loadTime}ms`);
         }, 0);
     });
 }
