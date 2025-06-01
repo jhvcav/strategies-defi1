@@ -240,78 +240,77 @@ class YieldMaxApp {
 
     this.showLoadingModal('Création de position sur Polygon...');
 
+    // Variables pour la transaction
+    let token0, token1;
+    let poolFee; // Renommé pour éviter tout conflit avec 'feeTier'
+    
+    // Configuration des tokens selon le pool
+    switch(selectedPool) {
+        case 'weth-usdc':
+            token0 = POLYGON_TOKENS.USDC;  // USDC est token0
+            token1 = POLYGON_TOKENS.WETH;  // WETH est token1
+            poolFee = 500;  // 0.05% pour WETH/USDC
+            break;
+            
+        case 'matic-usdc':
+            token0 = POLYGON_TOKENS.USDC;
+            token1 = POLYGON_TOKENS.WMATIC;
+            poolFee = 500;  // 0.05%
+            break;
+            
+        case 'wbtc-eth':
+            token0 = POLYGON_TOKENS.WBTC || "0x1BFD67037B42Cf73acF2047067bd4F2C47D9BfD6";
+            token1 = POLYGON_TOKENS.WETH;
+            poolFee = 3000; // 0.3%
+            break;
+            
+        case 'matic-eth':
+            token0 = POLYGON_TOKENS.WMATIC;
+            token1 = POLYGON_TOKENS.WETH;
+            poolFee = 3000; // 0.3%
+            break;
+            
+        default:
+            token0 = POLYGON_TOKENS.USDC;
+            token1 = POLYGON_TOKENS.WETH;
+            poolFee = 500; // 0.05% par défaut
+    }
+
+    // Paramètres pour la transaction
+    const rangePercentage = parseInt(selectedRange) * 100; // 10% -> 1000
+    const ethValue = ethers.parseEther(ethAmount);
+    
+    // Pour WETH/USDC, ETH est toujours token1 (amount1Desired)
+    const amount0Desired = ethers.parseUnits("0", token0 === POLYGON_TOKENS.USDC ? 6 : 18);
+    const amount1Desired = ethValue;
+
+    console.log('Paramètres transaction:', {
+        token0,
+        token1,
+        fee: poolFee,
+        rangePercentage,
+        amount0Desired: amount0Desired.toString(),
+        amount1Desired: amount1Desired.toString(),
+        ethValue: ethValue.toString()
+    });
+
     try {
-        // Configuration des tokens selon le pool
-        let token0, token1, feeTier; // Déclaration de feeTier ici
-        
-        // IMPORTANT: Configurer correctement les tokens et le fee tier
-        switch(selectedPool) {
-            case 'weth-usdc':
-                token0 = POLYGON_TOKENS.USDC;  // USDC est token0 (adresse plus petite)
-                token1 = POLYGON_TOKENS.WETH;  // WETH est token1
-                feeTier = 500;  // 0.05% pour WETH/USDC
-                break;
-                
-            case 'matic-usdc':
-                token0 = POLYGON_TOKENS.USDC;  // USDC est token0
-                token1 = POLYGON_TOKENS.WMATIC; // WMATIC est token1
-                feeTier = 500;  // 0.05%
-                break;
-                
-            case 'wbtc-eth':
-                // Si WBTC n'est pas défini dans POLYGON_TOKENS, utiliser l'adresse directement
-                token0 = POLYGON_TOKENS.WBTC || "0x1BFD67037B42Cf73acF2047067bd4F2C47D9BfD6";
-                token1 = POLYGON_TOKENS.WETH;
-                feeTier = 3000; // 0.3%
-                break;
-                
-            case 'matic-eth':
-                token0 = POLYGON_TOKENS.WMATIC;
-                token1 = POLYGON_TOKENS.WETH;
-                feeTier = 3000; // 0.3%
-                break;
-                
-            default:
-                token0 = POLYGON_TOKENS.USDC;
-                token1 = POLYGON_TOKENS.WETH;
-                feeTier = 500; // 0.05% par défaut
-        }
-
-        // Paramètres pour la transaction
-        const rangePercentage = parseInt(selectedRange) * 100; // 10% -> 1000
-        const ethValue = ethers.parseEther(ethAmount);
-        
-        // Configurer les montants en fonction de la position de l'ETH
-        // Pour WETH/USDC, ETH est toujours token1 (amount1Desired)
-        const amount0Desired = ethers.parseUnits("0", token0 === POLYGON_TOKENS.USDC ? 6 : 18);
-        const amount1Desired = ethValue;
-
-        console.log('Paramètres transaction:', {
-            token0,
-            token1,
-            fee: feeTier,
-            rangePercentage,
-            amount0Desired: amount0Desired.toString(),
-            amount1Desired: amount1Desired.toString(),
-            ethValue: ethValue.toString()
-        });
-
         // Initialiser ethers
         const provider = new ethers.BrowserProvider(window.ethereum);
         const signer = await provider.getSigner();
 
-        // Créer l'instance du contrat avec l'ABI correct
+        // Créer l'instance du contrat
         const contract = new ethers.Contract(
             POLYGON_CONTRACTS.STRATEGY_UNISWAP_V3,
-            STRATEGY_ABI, // L'ABI est défini ailleurs et chargé
+            STRATEGY_ABI,
             signer
         );
 
-        // Appeler la fonction createPositionAuto avec les bons paramètres
+        // Appeler la fonction createPositionAuto
         const tx = await contract.createPositionAuto(
             token0,
             token1,
-            feeTier,
+            poolFee,
             rangePercentage,
             amount0Desired,
             amount1Desired,
@@ -359,7 +358,7 @@ class YieldMaxApp {
         this.hideLoadingModal();
         console.error('Erreur transaction:', error);
         
-        // Message d'erreur amélioré
+        // Message d'erreur amélioré sans référence à feeTier
         let errorMessage = "Erreur inconnue";
         
         if (error.code === 4001) {
@@ -371,11 +370,12 @@ class YieldMaxApp {
         } else if (error.message) {
             errorMessage = `Erreur: ${error.message}`;
             
-            // Message spécifique pour les erreurs de revert
+            // Message spécifique sans référence à feeTier
             if (error.message.includes('execution reverted')) {
-                // Récupérer feeTier en toute sécurité
-                const currentFeeTier = feeTier || 0;
-                errorMessage = `Erreur: La transaction a échoué. Le pool sélectionné n'existe peut-être pas avec le fee tier spécifié (${currentFeeTier/10000}%)`;
+                errorMessage = `Erreur: La transaction a échoué lors de son exécution. Raisons possibles:
+1. Le pool ${selectedPool.toUpperCase()} n'existe peut-être pas avec ce fee tier
+2. Le montant ETH est trop petit pour créer une position viable
+3. Le contrat n'a pas les autorisations nécessaires pour interagir avec Uniswap V3`;
             }
         }
         
