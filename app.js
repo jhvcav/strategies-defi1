@@ -138,111 +138,43 @@ class YieldMaxApp {
         }
     }
 
-    async debugTokenBalances(userAddress) {
-    const provider = new ethers.BrowserProvider(window.ethereum);
-    
-    // ABI pour ERC20
-    const ERC20_ABI = [
-        "function balanceOf(address account) external view returns (uint256)",
-        "function decimals() external view returns (uint8)",
-        "function symbol() external view returns (string)",
-        "function name() external view returns (string)"
-    ];
-    
-    // Adresses de tokens à tester
-    const tokensToTest = [
-        { name: "USDC Native", address: "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359" },
-        { name: "USDC.e (Bridged)", address: "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174" },
-        { name: "USDT", address: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F" },
-        { name: "WETH", address: "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619" },
-        { name: "WMATIC", address: "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270" }
-    ];
-    
-    console.log("=== DEBUG DES SOLDES DE TOKENS ===");
-    console.log("Adresse utilisateur:", userAddress);
-    
-    const results = {};
-    
-    for (const token of tokensToTest) {
-        try {
-            const contract = new ethers.Contract(token.address, ERC20_ABI, provider);
-            
-            const [balance, decimals, symbol, name] = await Promise.all([
-                contract.balanceOf(userAddress),
-                contract.decimals(),
-                contract.symbol(),
-                contract.name()
-            ]);
-            
-            const formattedBalance = ethers.formatUnits(balance, decimals);
-            
-            results[token.name] = {
-                address: token.address,
-                symbol: symbol,
-                name: name,
-                balance: formattedBalance,
-                decimals: decimals,
-                rawBalance: balance.toString(),
-                hasBalance: parseFloat(formattedBalance) > 0
-            };
-            
-            console.log(`${token.name}:`, {
-                symbol: symbol,
-                balance: formattedBalance,
-                address: token.address
-            });
-            
-        } catch (error) {
-            console.error(`❌ Erreur pour ${token.name}:`, error.message);
-            results[token.name] = { error: error.message };
-        }
-    }
-    
-    return results;
-}
-
     async deployUniswapStrategy() {
     if (!this.walletConnected) {
         alert('Veuillez connecter votre wallet');
         return;
     }
 
-    this.showLoadingModal('Test position USDC uniquement...');
+    const ethAmount = document.getElementById('ethAmount').value;
+    if (!ethAmount || parseFloat(ethAmount) <= 0) {
+        alert('Veuillez entrer un montant valide');
+        return;
+    }
+
+    this.showLoadingModal('Version finale équilibrée...');
 
     try {
         const provider = new ethers.BrowserProvider(window.ethereum);
         const signer = await provider.getSigner();
         const userAddress = await signer.getAddress();
         
-        console.log("=== TEST POSITION USDC SEULEMENT ===");
+        console.log("=== VERSION FINALE ÉQUILIBRÉE ===");
         
-        // Configuration
-        const usdcAmount = "50"; // 50 USDC seulement
-        const usdcValue = ethers.parseUnits(usdcAmount, 6);
-        
-        // Vérifier solde USDC
-        const ERC20_ABI = [
-            "function balanceOf(address account) view returns (uint256)",
-            "function approve(address spender, uint256 amount) returns (bool)"
-        ];
-        const usdcContract = new ethers.Contract(POLYGON_TOKENS.USDC, ERC20_ABI, provider);
-        const usdcBalance = await usdcContract.balanceOf(userAddress);
-        
-        if (usdcBalance < usdcValue) {
-            this.hideLoadingModal();
-            alert(`Solde USDC insuffisant! Vous avez ${ethers.formatUnits(usdcBalance, 6)} USDC`);
-            return;
-        }
+        // Calculer les montants exacts pour une position équilibrée
+        const ethValue = ethers.parseEther(ethAmount);
+        const usdcNeeded = parseFloat(ethAmount) * 2511; // Prix actuel du marché
+        const usdcValue = ethers.parseUnits(usdcNeeded.toFixed(2), 6);
         
         // Approuver USDC
+        const ERC20_ABI = ["function approve(address spender, uint256 amount) returns (bool)"];
+        const usdcContract = new ethers.Contract(POLYGON_TOKENS.USDC, ERC20_ABI, signer);
         const NFT_POSITION_MANAGER = "0xC36442b4a4522E871399CD717aBDD847Ab11FE88";
-        console.log('Approbation USDC...');
-        const usdcWithSigner = usdcContract.connect(signer);
-        const approveUSDCTx = await usdcWithSigner.approve(NFT_POSITION_MANAGER, usdcValue);
-        await approveUSDCTx.wait();
+        
+        console.log(`Approbation ${usdcNeeded.toFixed(2)} USDC...`);
+        const approveTx = await usdcContract.approve(NFT_POSITION_MANAGER, usdcValue);
+        await approveTx.wait();
         console.log('✅ USDC approuvé');
         
-        // Récupérer infos du pool
+        // Récupérer le tick du pool
         const FACTORY_ADDRESS = "0x1F98431c8aD98523631AE4a59f267346ea31F984";
         const FACTORY_ABI = ["function getPool(address tokenA, address tokenB, uint24 fee) external view returns (address pool)"];
         const factory = new ethers.Contract(FACTORY_ADDRESS, FACTORY_ABI, provider);
@@ -253,17 +185,20 @@ class YieldMaxApp {
         const slot0 = await poolContract.slot0();
         const currentTick = slot0.tick;
         
-        // Calculer des ticks très larges pour minimiser les erreurs
+        // Ticks larges pour position équilibrée
         const tickSpacing = 10;
-        const tickRange = 10000; // Très large
+        const tickRange = 2000;
         const tickLower = Math.floor((Number(currentTick) - tickRange) / tickSpacing) * tickSpacing;
         const tickUpper = Math.ceil((Number(currentTick) + tickRange) / tickSpacing) * tickSpacing;
         
-        console.log('Pool:', poolAddress);
-        console.log('Tick actuel:', currentTick.toString());
-        console.log('Ticks larges:', tickLower, 'à', tickUpper);
+        console.log('Position équilibrée:', {
+            usdc: usdcNeeded.toFixed(2) + ' USDC',
+            eth: ethAmount + ' ETH',
+            ticks: `${tickLower} à ${tickUpper}`,
+            prix: '~2511 USDC/ETH'
+        });
         
-        // Position avec SEULEMENT USDC (pas d'ETH/WETH)
+        // Position équilibrée avec les DEUX tokens
         const NFT_POSITION_MANAGER_ABI = [
             "function mint(tuple(address token0, address token1, uint24 fee, int24 tickLower, int24 tickUpper, uint256 amount0Desired, uint256 amount1Desired, uint256 amount0Min, uint256 amount1Min, address recipient, uint256 deadline) params) external payable returns (uint256 tokenId, uint128 liquidity, uint256 amount0, uint256 amount1)"
         ];
@@ -272,49 +207,36 @@ class YieldMaxApp {
         const deadline = Math.floor(Date.now() / 1000) + 1200;
         
         const mintParams = {
-            token0: POLYGON_TOKENS.USDC,  // USDC
-            token1: POLYGON_TOKENS.WETH,  // WETH
+            token0: POLYGON_TOKENS.USDC,
+            token1: POLYGON_TOKENS.WETH,
             fee: 500,
             tickLower,
             tickUpper,
-            amount0Desired: usdcValue,    // 50 USDC
-            amount1Desired: 0,            // PAS de WETH
+            amount0Desired: usdcValue,  // USDC approuvé
+            amount1Desired: ethValue,   // WETH via ETH natif
             amount0Min: 0,
             amount1Min: 0,
             recipient: userAddress,
             deadline
         };
         
-        console.log('🧪 Test USDC seulement:', {
-            amount0: usdcAmount + ' USDC',
-            amount1: '0 WETH',
-            ticks: `${tickLower} à ${tickUpper}`,
-            tickRange: 'Très large pour éviter les erreurs'
-        });
-        
-        // Transaction SANS ETH (value: 0)
         const tx = await positionManager.mint(mintParams, {
-            value: 0, // PAS d'ETH natif
+            value: ethValue,
             gasLimit: 5000000
         });
         
-        console.log('📤 Transaction USDC-only envoyée:', tx.hash);
+        console.log('📤 Position équilibrée envoyée:', tx.hash);
         
         const receipt = await tx.wait();
-        console.log('✅ SUCCESS USDC-only!', receipt.hash);
+        console.log('🎉 SUCCÈS FINAL!', receipt.hash);
         
         this.hideLoadingModal();
-        alert(`🎉 SUCCÈS AVEC USDC SEULEMENT!\n\nTransaction: ${tx.hash}\n\nCela prouve que le problème vient du mélange ETH+USDC!\n\nMaintenant nous savons qu'il faut adapter l'approche.`);
+        alert(`🎉 SUCCÈS!\n\nPosition créée avec les deux tokens:\n${usdcNeeded.toFixed(2)} USDC + ${ethAmount} ETH\n\nTransaction: ${tx.hash}`);
         
     } catch (error) {
         this.hideLoadingModal();
-        console.error('❌ Erreur USDC-only:', error);
-        
-        if (error.message.includes('execution reverted')) {
-            alert(`❌ Même le test USDC-only a échoué!\n\nCela indique un problème plus profond:\n- Pool non compatible\n- Ticks incorrects\n- Ou restrictions du contrat\n\nErreur: ${error.message}`);
-        } else {
-            alert('Erreur USDC-only: ' + error.message);
-        }
+        console.error('❌ Erreur finale:', error);
+        alert('Erreur finale: ' + error.message);
     }
 }
 
@@ -763,7 +685,7 @@ class YieldMaxApp {
         const uniswapBtn = document.querySelector('#uniswap-strategy .strategy-btn');
         if (uniswapBtn) {
             uniswapBtn.addEventListener('click', () => {
-                this.testUSDCOnlyPosition();
+                this.deployUniswapStrategy();
             });
         }
 
