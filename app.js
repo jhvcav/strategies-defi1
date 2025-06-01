@@ -1008,23 +1008,23 @@ updateLendingInfo(selectedAsset, currentAPR) {
     }
 
     // ===== UI UPDATES =====
-    updatePositionsTable() {
-    const tableBody = document.getElementById('positionsTableBody');
+        updatePositionsTable() {
+        const tableBody = document.getElementById('positionsTableBody');
     
-    if (!tableBody) {
+        if (!tableBody) {
         console.error('Élément positionsTableBody non trouvé');
         return;
-    }
+        }
     
-    if (this.positions.length === 0) {
-        tableBody.innerHTML = `
-            <div class="empty-state">
-                <i class="fas fa-seedling"></i>
-                <p>Aucune position active</p>
-                <span>Déployez votre première stratégie pour commencer</span>
-            </div>
-        `;
-    } else {
+        if (this.positions.length === 0) {
+            tableBody.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-seedling"></i>
+                    <p>Aucune position active</p>
+                    <span>Déployez votre première stratégie pour commencer</span>
+                </div>
+            `;
+        } else {
         // NOUVELLE STRUCTURE: Utilise des div avec grid pour respecter les colonnes
         tableBody.innerHTML = this.positions.map(position => `
             <div class="position-row">
@@ -1061,59 +1061,59 @@ updateLendingInfo(selectedAsset, currentAPR) {
     }
 }
 
-// ===== NOUVELLE FONCTION POUR VOIR LES TRANSACTIONS =====
-viewTransaction(txHash) {
-    const url = `https://polygonscan.com/tx/${txHash}`;
-    window.open(url, '_blank');
-    this.showNotification('🔗 Transaction ouverte dans PolygonScan', 'info');
-}
-
-    updateDashboardStats() {
-        // Calculer les statistiques du portefeuille
-        const totalValue = this.positions.reduce((sum, pos) => {
-            const amount = parseFloat(pos.amount.split(' ')[0]) || 0;
-            return sum + amount * 2000; // Estimation prix ETH à 2000$
-        }, 0);
-
-        const dailyYield = totalValue * 0.002; // Estimation 0.2% rendement quotidien
-        const avgAPR = this.positions.length > 0 ? 
-            this.positions.reduce((sum, pos) => sum + parseFloat(pos.apr) || 0, 0) / this.positions.length : 0;
-
-        // Mettre à jour les cartes de statistiques
-        const valueElement = document.querySelector('.stat-card:nth-child(1) .stat-value');
-        const yieldElement = document.querySelector('.stat-card:nth-child(2) .stat-value');
-        const aprElement = document.querySelector('.stat-card:nth-child(3) .stat-value');
-        const positionsElement = document.querySelector('.stat-card:nth-child(4) .stat-value');
-        
-        if (valueElement) valueElement.textContent = `$${totalValue.toFixed(2)}`;
-        if (yieldElement) yieldElement.textContent = `$${dailyYield.toFixed(2)}`;
-        if (aprElement) aprElement.textContent = `${avgAPR.toFixed(1)}%`;
-        if (positionsElement) positionsElement.textContent = this.positions.length;
-    }
-
-    // ===== UTILITY FUNCTIONS =====
-    showLoadingModal(message) {
-        const modal = document.getElementById('loadingModal');
-        if (!modal) return;
-        
-        const messageElement = modal.querySelector('p');
-        if (messageElement) messageElement.textContent = message;
-        
-        modal.classList.add('active');
-    }
-
-    hideLoadingModal() {
-        const modal = document.getElementById('loadingModal');
-        if (modal) modal.classList.remove('active');
-    }
-
-    closePosition(positionId) {
-        if (confirm('Êtes-vous sûr de vouloir fermer cette position?')) {
-            this.positions = this.positions.filter(pos => pos.id !== positionId);
-            this.updatePositionsTable();
-            this.updateDashboardStats();
+    // ===== NOUVELLE FONCTION POUR VOIR LES TRANSACTIONS =====
+        viewTransaction(txHash) {
+            const url = `https://polygonscan.com/tx/${txHash}`;
+            window.open(url, '_blank');
+            this.showNotification('🔗 Transaction ouverte dans PolygonScan', 'info');
         }
-    }
+
+        updateDashboardStats() {
+            // Calculer les statistiques du portefeuille
+            const totalValue = this.positions.reduce((sum, pos) => {
+                const amount = parseFloat(pos.amount.split(' ')[0]) || 0;
+                return sum + amount * 2000; // Estimation prix ETH à 2000$
+            }, 0);
+
+            const dailyYield = totalValue * 0.002; // Estimation 0.2% rendement quotidien
+            const avgAPR = this.positions.length > 0 ? 
+                this.positions.reduce((sum, pos) => sum + parseFloat(pos.apr) || 0, 0) / this.positions.length : 0;
+
+            // Mettre à jour les cartes de statistiques
+            const valueElement = document.querySelector('.stat-card:nth-child(1) .stat-value');
+            const yieldElement = document.querySelector('.stat-card:nth-child(2) .stat-value');
+            const aprElement = document.querySelector('.stat-card:nth-child(3) .stat-value');
+            const positionsElement = document.querySelector('.stat-card:nth-child(4) .stat-value');
+        
+            if (valueElement) valueElement.textContent = `$${totalValue.toFixed(2)}`;
+            if (yieldElement) yieldElement.textContent = `$${dailyYield.toFixed(2)}`;
+            if (aprElement) aprElement.textContent = `${avgAPR.toFixed(1)}%`;
+            if (positionsElement) positionsElement.textContent = this.positions.length;
+        }
+
+        // ===== UTILITY FUNCTIONS =====
+        showLoadingModal(message) {
+            const modal = document.getElementById('loadingModal');
+            if (!modal) return;
+        
+            const messageElement = modal.querySelector('p');
+            if (messageElement) messageElement.textContent = message;
+        
+            modal.classList.add('active');
+        }
+
+        hideLoadingModal() {
+            const modal = document.getElementById('loadingModal');
+            if (modal) modal.classList.remove('active');
+        }
+
+        closePosition(positionId) {
+            if (confirm('Êtes-vous sûr de vouloir fermer cette position?')) {
+                this.positions = this.positions.filter(pos => pos.id !== positionId);
+                this.updatePositionsTable();
+                this.updateDashboardStats();
+            }
+        }
 
     async loadUserPositions() {
         if (!this.walletConnected) return;
