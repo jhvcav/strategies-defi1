@@ -57,11 +57,8 @@ class YieldMaxApp {
 
     // ===== WALLET CONNECTION =====
     async connectWallet() {
-        console.log('Tentative de connexion au wallet...');
-        
         try {
             if (typeof window.ethereum !== 'undefined') {
-                // Demander la connexion au wallet
                 const accounts = await window.ethereum.request({
                     method: 'eth_requestAccounts'
                 });
@@ -69,101 +66,31 @@ class YieldMaxApp {
                 this.currentAccount = accounts[0];
                 this.walletConnected = true;
                 
-                console.log('Wallet connecté:', this.currentAccount);
-                
-                // Mettre à jour l'UI
+                // Update UI
                 this.updateWalletUI();
+                this.loadUserPositions();
                 
-                // Vérifier et basculer vers Polygon si nécessaire
-                await this.switchToPolygon();
-                
-                // Charger les positions existantes
-                await this.loadUserPositions();
-                
+                console.log('Wallet connected:', this.currentAccount);
             } else {
                 alert('MetaMask non détecté. Veuillez installer MetaMask.');
             }
         } catch (error) {
             console.error('Erreur de connexion wallet:', error);
-            alert('Erreur lors de la connexion au wallet: ' + (error.message || 'Erreur inconnue'));
-        }
-    }
-
-    async switchToPolygon() {
-        try {
-            // Vérifier la chaîne actuelle
-            const chainId = await window.ethereum.request({ method: 'eth_chainId' });
-            const currentChainId = parseInt(chainId, 16);
-            
-            console.log('Chaîne actuelle:', currentChainId);
-            
-            // Si ce n'est pas Polygon, demander à changer
-            if (currentChainId !== POLYGON_CHAIN_ID) {
-                console.log('Changement vers Polygon...');
-                
-                try {
-                    await window.ethereum.request({
-                        method: 'wallet_switchEthereumChain',
-                        params: [{ chainId: '0x89' }] // Polygon chainId en hex
-                    });
-                    
-                    console.log('Basculé sur Polygon');
-                    document.getElementById('networkSelect').value = 'polygon';
-                    this.currentNetwork = 'polygon';
-                    
-                } catch (switchError) {
-                    // Si la chaîne n'est pas ajoutée, proposer de l'ajouter
-                    if (switchError.code === 4902) {
-                        try {
-                            await window.ethereum.request({
-                                method: 'wallet_addEthereumChain',
-                                params: [{
-                                    chainId: '0x89',
-                                    chainName: 'Polygon Mainnet',
-                                    nativeCurrency: {
-                                        name: 'MATIC',
-                                        symbol: 'MATIC',
-                                        decimals: 18
-                                    },
-                                    rpcUrls: ['https://polygon-rpc.com'],
-                                    blockExplorerUrls: ['https://polygonscan.com']
-                                }]
-                            });
-                            
-                            console.log('Réseau Polygon ajouté');
-                            document.getElementById('networkSelect').value = 'polygon';
-                            this.currentNetwork = 'polygon';
-                            
-                        } catch (addError) {
-                            console.error('Erreur lors de l\'ajout du réseau Polygon:', addError);
-                        }
-                    } else {
-                        console.error('Erreur lors du changement de réseau:', switchError);
-                    }
-                }
-            }
-        } catch (error) {
-            console.error('Erreur lors de la vérification du réseau:', error);
+            alert('Erreur lors de la connexion au wallet');
         }
     }
 
     updateWalletUI() {
         const walletBtn = document.getElementById('connectWallet');
-        if (this.walletConnected && this.currentAccount) {
+        if (this.walletConnected) {
             walletBtn.innerHTML = `
                 <i class="fas fa-check-circle"></i>
                 ${this.currentAccount.slice(0, 6)}...${this.currentAccount.slice(-4)}
             `;
             walletBtn.classList.add('connected');
-        } else {
-            walletBtn.innerHTML = `
-                <i class="fas fa-wallet"></i>
-                Connecter Wallet
-            `;
-            walletBtn.classList.remove('connected');
         }
     }
-
+    
     // ===== STRATEGY MANAGEMENT =====
     switchStrategy(strategyName) {
         console.log('Changement de stratégie vers:', strategyName);
