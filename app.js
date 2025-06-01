@@ -31,6 +31,7 @@ class YieldMaxApp {
         this.currentAccount = null;
         this.currentNetwork = 'polygon'; // Défaut sur Polygon
         this.activeStrategy = 'uniswap';
+        this.loadContractABI();
         this.positions = [];
         
         this.init();
@@ -41,6 +42,18 @@ class YieldMaxApp {
         this.setupEventListeners();
         this.updateUI();
     }
+
+    // ===== CHARGEMENT ABI =====
+    async loadContractABI() {
+    try {
+        const response = await fetch('./contract-abi.json');
+        const data = await response.json();
+        window.STRATEGY_ABI = data;
+        console.log('ABI chargé avec succès');
+    } catch (error) {
+        console.error('Erreur lors du chargement de l\'ABI:', error);
+    }
+}
 
     // ===== WALLET CONNECTION =====
     async connectWallet() {
@@ -198,8 +211,6 @@ class YieldMaxApp {
     }
 
     async deployUniswapStrategy() {
-    console.log('Début du déploiement de la stratégie Uniswap...');
-    
     if (!this.walletConnected) {
         alert('Veuillez connecter votre wallet');
         return;
@@ -208,17 +219,9 @@ class YieldMaxApp {
     // Vérifier qu'on est sur Polygon
     try {
         const chainId = await window.ethereum.request({ method: 'eth_chainId' });
-        const currentChainId = parseInt(chainId, 16);
-        
-        console.log('Chaîne actuelle pour le déploiement:', currentChainId);
-        
-        if (currentChainId !== POLYGON_CHAIN_ID) {
-            const confirmSwitch = confirm('Cette stratégie nécessite le réseau Polygon. Voulez-vous changer de réseau?');
-            if (confirmSwitch) {
-                await this.switchToPolygon();
-            } else {
-                return;
-            }
+        if (parseInt(chainId, 16) !== POLYGON_CHAIN_ID) {
+            alert('Veuillez vous connecter au réseau Polygon');
+            return;
         }
     } catch (error) {
         console.error('Erreur lors de la vérification du réseau:', error);
@@ -238,101 +241,83 @@ class YieldMaxApp {
     this.showLoadingModal('Création de position sur Polygon...');
 
     try {
-        // CORRECTION IMPORTANTE: Utiliser 500 comme fee tier (0.05%) au lieu de 3000 (0.3%)
-        // Pour WETH/USDC sur Polygon
-        
         // Configuration des tokens selon le pool
-        let token0, token1, isETHToken0, feeTier;
-        console.log('Pool sélectionné:', selectedPool);
+        let token0, token1, feeTier;
         
+        // IMPORTANT: Configurer correctement les tokens et le fee tier
         switch(selectedPool) {
             case 'weth-usdc':
-                // IMPORTANT: Pour WETH/USDC sur Polygon, USDC est toujours token0 (adresse plus petite)
-                token0 = POLYGON_TOKENS.USDC;
-                token1 = POLYGON_TOKENS.WETH;
-                isETHToken0 = false; // ETH est token1
-                feeTier = 500; // 0.05% pour WETH/USDC sur Polygon (selon la recherche)
+                token0 = POLYGON_TOKENS.USDC;  // USDC est token0 (adresse plus petite)
+                token1 = POLYGON_TOKENS.WETH;  // WETH est token1
+                feeTier = 500;  // 0.05% pour WETH/USDC
                 break;
+                
             case 'matic-usdc':
-                token0 = POLYGON_TOKENS.USDC;
-                token1 = POLYGON_TOKENS.WMATIC;
-                isETHToken0 = false; // MATIC est token1
-                feeTier = 500; // 0.05% par défaut
+                token0 = POLYGON_TOKENS.USDC;  // USDC est token0
+                token1 = POLYGON_TOKENS.WMATIC; // WMATIC est token1
+                feeTier = 500;  // 0.05%
                 break;
+                
             case 'wbtc-eth':
-                token0 = POLYGON_TOKENS.WBTC;
+                // Si WBTC n'est pas défini dans POLYGON_TOKENS, utiliser l'adresse directement
+                token0 = POLYGON_TOKENS.WBTC || "0x1BFD67037B42Cf73acF2047067bd4F2C47D9BfD6";
                 token1 = POLYGON_TOKENS.WETH;
-                isETHToken0 = false; // ETH est token1
-                feeTier = 3000; // 0.3% par défaut
+                feeTier = 3000; // 0.3%
                 break;
+                
             case 'matic-eth':
                 token0 = POLYGON_TOKENS.WMATIC;
                 token1 = POLYGON_TOKENS.WETH;
-                isETHToken0 = false; // ETH est token1
-                feeTier = 3000; // 0.3% par défaut
+                feeTier = 3000; // 0.3%
                 break;
+                
             default:
                 token0 = POLYGON_TOKENS.USDC;
                 token1 = POLYGON_TOKENS.WETH;
-                isETHToken0 = false; // ETH est token1
                 feeTier = 500; // 0.05% par défaut
         }
 
-        console.log('Adresses de tokens:', {
+        // Paramètres pour la transaction
+        const rangePercentage = parseInt(selectedRange) * 100; // 10% -> 1000
+        const ethValue = ethers.parseEther(ethAmount);
+        
+        // Configurer les montants en fonction de la position de l'ETH
+        // Pour WETH/USDC, ETH est toujours token1 (amount1Desired)
+        const amount0Desired = ethers.parseUnits("0", token0 === POLYGON_TOKENS.USDC ? 6 : 18);
+        const amount1Desired = ethValue;
+
+        console.log('Paramètres transaction:', {
             token0,
             token1,
-            isETHToken0,
-            feeTier
+            fee: feeTier,
+            rangePercentage,
+            amount0Desired: amount0Desired.toString(),
+            amount1Desired: amount1Desired.toString(),
+            ethValue: ethValue.toString()
         });
 
         // Initialiser ethers
         const provider = new ethers.BrowserProvider(window.ethereum);
         const signer = await provider.getSigner();
 
-        // CORRECTION CLÉ: Configurer les montants en fonction de la position de l'ETH
-        let amount0Desired, amount1Desired;
-        const ethValue = ethers.parseEther(ethAmount);
-        
-        if (isETHToken0) {
-            // Si ETH est le premier token (token0)
-            amount0Desired = ethValue;
-            amount1Desired = ethers.parseUnits("0", selectedPool.includes('usdc') ? 6 : 18);
-            console.log("ETH comme token0");
-        } else {
-            // Si ETH est le second token (token1) - c'est le cas pour WETH/USDC
-            amount0Desired = ethers.parseUnits("0", selectedPool.includes('usdc') ? 6 : 18);
-            amount1Desired = ethValue;
-            console.log("ETH comme token1");
-        }
-
-        console.log('Paramètres transaction finaux:', {
-            token0,
-            token1,
-            fee: feeTier, // IMPORTANTE: Utilisation de feeTier au lieu de 3000 fixe
-            rangePercentage: parseInt(selectedRange) * 100,
-            amount0Desired: amount0Desired.toString(),
-            amount1Desired: amount1Desired.toString(),
-            ethValue: ethValue.toString()
-        });
-
-        // Créer l'instance du contrat
+        // Créer l'instance du contrat avec l'ABI correct
         const contract = new ethers.Contract(
             POLYGON_CONTRACTS.STRATEGY_UNISWAP_V3,
-            STRATEGY_ABI,
+            STRATEGY_ABI, // L'ABI est défini ailleurs et chargé
             signer
         );
-        
-        // Appel au contrat avec ETH
+
+        // Appeler la fonction createPositionAuto avec les bons paramètres
         const tx = await contract.createPositionAuto(
             token0,
             token1,
-            feeTier, // IMPORTANT: Utiliser le fee tier correct
-            parseInt(selectedRange) * 100, // 10% = 1000
+            feeTier,
+            rangePercentage,
             amount0Desired,
             amount1Desired,
             {
                 value: ethValue, // Envoyer ETH
-                gasLimit: 2000000 // Limite de gas encore plus élevée
+                gasLimit: 3000000 // Limite de gas augmentée
             }
         );
 
@@ -342,7 +327,7 @@ class YieldMaxApp {
         const receipt = await tx.wait();
         console.log('Transaction confirmée:', receipt);
 
-        // Récupérer le tokenId du log
+        // Récupérer le tokenId du log (simplifié)
         const tokenId = receipt.logs[0]?.topics[1] || "N/A"; 
         
         // Ajouter la position à l'UI
@@ -386,9 +371,9 @@ class YieldMaxApp {
         } else if (error.message) {
             errorMessage = `Erreur: ${error.message}`;
             
-            // Si c'est toujours un problème de pool inexistant
+            // Message spécifique pour les erreurs de revert
             if (error.message.includes('execution reverted')) {
-                errorMessage = `Le pool ${selectedPool.toUpperCase()} n'existe peut-être pas sur Uniswap V3 Polygon avec ce fee tier. Essayez avec un autre fee tier ou vérifiez sur app.uniswap.org.`;
+                errorMessage = `Erreur: La transaction a échoué. Le pool sélectionné n'existe peut-être pas avec le fee tier spécifié (${feeTier/10000}%)`;
             }
         }
         
