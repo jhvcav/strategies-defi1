@@ -315,26 +315,112 @@ Aave Strategy <body>
 
         <!-- Informations de lending - même style que yield-preview -->
         <div class="lending-info">
-            <h4>Informations de Lending</h4>
-            <div class="info-grid">
-                <div class="info-item">
-                    <span>Type de Stratégie:</span>
-                    <strong>Lending Simple</strong>
-                </div>
-                <div class="info-item">
-                    <span>Token Reçu:</span>
-                    <strong id="aTokenName">aWETH</strong>
-                </div>
-                <div class="info-item">
-                    <span>Intérêts:</span>
-                    <strong>Automatiques</strong>
-                </div>
-                <div class="info-item">
-                    <span>Liquidité:</span>
-                    <strong>Retrait immédiat</strong>
-                </div>
+    <h4>Informations de Lending</h4>
+    <div class="info-grid">
+        <div class="info-item">
+            <span>Type de Stratégie:</span>
+            <strong>Lending Simple</strong>
+        </div>
+        <div class="info-item">
+            <span>Token Reçu:</span>
+            <strong id="aTokenName">aWETH</strong>
+        </div>
+        <div class="info-item">
+            <span>APR Actuel:</span>
+            <strong>5.2% APR</strong>
+        </div>
+        <div class="info-item">
+            <span>Liquidité:</span>
+            <strong>Retrait immédiat</strong>
+        </div>
+    </div>
+    
+    <!-- NOUVEAU: Section d'aide -->
+    <div class="lending-help">
+        <div class="help-item">
+            <i class="fas fa-info-circle"></i>
+            <div class="help-content">
+                <h5>Comment ça fonctionne ?</h5>
+                <p>Vos tokens génèrent automatiquement des intérêts. Vous recevez des aTokens qui représentent votre dépôt + intérêts accumulés.</p>
             </div>
         </div>
+        
+        <div class="help-item">
+            <i class="fas fa-coins"></i>
+            <div class="help-content">
+                <h5>Intérêts en temps réel</h5>
+                <p>Les intérêts s'accumulent en permanence dans votre wallet. Pas besoin de réclamer quoi que ce soit.</p>
+            </div>
+        </div>
+        
+        <div class="help-item">
+            <i class="fas fa-hand-holding-usd"></i>
+            <div class="help-content">
+                <h5>Retrait flexible</h5>
+                <p>Retirez vos fonds à tout moment, sans période de blocage ni pénalités.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- CSS pour la section d'aide -->
+<style>
+.lending-help {
+    margin-top: var(--space-lg);
+    padding-top: var(--space-lg);
+    border-top: 1px solid var(--border);
+}
+
+.help-item {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-md);
+    margin-bottom: var(--space-lg);
+}
+
+.help-item:last-child {
+    margin-bottom: 0;
+}
+
+.help-item i {
+    color: var(--primary);
+    font-size: 1.25rem;
+    margin-top: 2px;
+    flex-shrink: 0;
+}
+
+.help-content h5 {
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    font-weight: 600;
+    margin-bottom: var(--space-xs);
+}
+
+.help-content p {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    line-height: 1.4;
+    margin: 0;
+}
+
+@media (max-width: 768px) {
+    .help-item {
+        gap: var(--space-sm);
+    }
+    
+    .help-item i {
+        font-size: 1rem;
+    }
+    
+    .help-content h5 {
+        font-size: 0.8rem;
+    }
+    
+    .help-content p {
+        font-size: 0.75rem;
+    }
+}
+</style>
 
         <!-- Yield preview - exactement comme Uniswap -->
         <div class="yield-preview">

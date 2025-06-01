@@ -1923,3 +1923,269 @@ select:focus {
     padding: var(--space-sm);
     font-size: 1rem;
 }
+
+/* ===== CSS À AJOUTER POUR CORRIGER LE TABLEAU DES POSITIONS ===== */
+
+/* Structure du tableau positions */
+.positions-table {
+    background: var(--bg-glass);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    overflow: hidden;
+}
+
+.table-header {
+    background: var(--bg-secondary);
+    padding: var(--space-lg);
+    display: grid;
+    grid-template-columns: 1.8fr 1.2fr 1.2fr 0.8fr 0.8fr 1fr;
+    gap: var(--space-md);
+    font-weight: 700;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid var(--border);
+}
+
+.table-body {
+    min-height: 200px;
+}
+
+/* Lignes du tableau */
+.position-row {
+    display: grid;
+    grid-template-columns: 1.8fr 1.2fr 1.2fr 0.8fr 0.8fr 1fr;
+    gap: var(--space-md);
+    padding: var(--space-lg);
+    border-bottom: 1px solid var(--border);
+    transition: all 0.2s ease;
+    align-items: center;
+}
+
+.position-row:last-child {
+    border-bottom: none;
+}
+
+.position-row:hover {
+    background: rgba(99, 102, 241, 0.05);
+}
+
+/* Cellules du tableau */
+.position-cell {
+    display: flex;
+    align-items: center;
+    min-height: 40px;
+}
+
+.strategy-cell .cell-content {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.strategy-cell i {
+    color: var(--primary);
+    font-size: 1.125rem;
+}
+
+.pool-name {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.amount-value {
+    font-weight: 600;
+    color: var(--text-primary);
+    font-family: 'Courier New', monospace;
+}
+
+.apr-value {
+    font-weight: 700;
+    font-size: 1.125rem;
+}
+
+.pnl-value {
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.actions-cell {
+    display: flex;
+    gap: var(--space-sm);
+    justify-content: center;
+}
+
+.action-btn {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 0.875rem;
+}
+
+.action-btn:hover {
+    background: var(--danger);
+    color: white;
+    border-color: var(--danger);
+    transform: translateY(-1px);
+}
+
+.action-btn.view-btn:hover {
+    background: var(--primary);
+    border-color: var(--primary);
+}
+
+/* État vide */
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-2xl);
+    text-align: center;
+    color: var(--text-muted);
+    min-height: 200px;
+}
+
+.empty-state i {
+    font-size: 3rem;
+    margin-bottom: var(--space-lg);
+    color: var(--text-secondary);
+}
+
+.empty-state p {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin-bottom: var(--space-sm);
+    color: var(--text-secondary);
+}
+
+.empty-state span {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+}
+
+/* Responsive pour le tableau */
+@media (max-width: 1024px) {
+    .table-header {
+        grid-template-columns: 1.5fr 1fr 1fr 0.8fr 1fr;
+        font-size: 0.75rem;
+    }
+    
+    .position-row {
+        grid-template-columns: 1.5fr 1fr 1fr 0.8fr 1fr;
+    }
+    
+    /* Masquer la colonne PnL sur tablette */
+    .table-header span:nth-child(5),
+    .position-row .pnl-cell {
+        display: none;
+    }
+}
+
+@media (max-width: 768px) {
+    .table-header {
+        display: none;
+    }
+    
+    .position-row {
+        display: block;
+        padding: var(--space-lg);
+        background: var(--bg-secondary);
+        margin-bottom: var(--space-md);
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border);
+    }
+    
+    .position-cell {
+        display: block;
+        margin-bottom: var(--space-sm);
+        min-height: auto;
+    }
+    
+    .position-cell:last-child {
+        margin-bottom: 0;
+    }
+    
+    /* Labels pour mobile */
+    .position-cell::before {
+        content: attr(data-label);
+        font-weight: 600;
+        color: var(--text-secondary);
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        display: block;
+        margin-bottom: var(--space-xs);
+    }
+    
+    .strategy-cell::before {
+        content: "Stratégie:";
+    }
+    
+    .pool-cell::before {
+        content: "Pool/Asset:";
+    }
+    
+    .amount-cell::before {
+        content: "Montant:";
+    }
+    
+    .apr-cell::before {
+        content: "APR:";
+    }
+    
+    .pnl-cell::before {
+        content: "PnL:";
+    }
+    
+    .actions-cell::before {
+        content: "Actions:";
+    }
+    
+    .actions-cell {
+        justify-content: flex-start;
+    }
+}
+
+/* Animations */
+@keyframes slideInRow {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.position-row {
+    animation: slideInRow 0.3s ease-out;
+}
+
+/* Couleurs pour les types de texte */
+.text-success {
+    color: var(--success) !important;
+}
+
+.text-danger {
+    color: var(--danger) !important;
+}
+
+.text-primary {
+    color: var(--text-primary) !important;
+}
+
+.text-secondary {
+    color: var(--text-secondary) !important;
+}

@@ -651,97 +651,143 @@ class YieldMaxApp {
 
     // ===== AAVE STRATEGY =====
     updateAaveMetrics() {
-        const amount = parseFloat(document.getElementById('aaveAmount')?.value) || 0;
-        const selectedAsset = document.getElementById('aaveAssetSelect')?.value || 'weth';
+    const amount = parseFloat(document.getElementById('aaveAmount')?.value) || 0;
+    const selectedAsset = document.getElementById('aaveAssetSelect')?.value || 'weth';
+    
+    // APRs réels d'Aave sur Polygon
+    const aprs = {
+        weth: 5.2,
+        usdc: 3.71, // APR réel que vous avez confirmé
+        wmatic: 6.1,
+        wbtc: 4.9
+    };
+    
+    // Prix approximatifs en USD pour calculs
+    const prices = {
+        weth: 2500,
+        usdc: 1,
+        wmatic: 0.8,
+        wbtc: 45000
+    };
+    
+    const currentAPR = aprs[selectedAsset] || 5.0;
+    const price = prices[selectedAsset] || 1;
+    
+    // Calculs de rendement basés sur le montant saisi
+    let dailyYield = 0;
+    let monthlyYield = 0;
+    let dailyUSD = 0;
+    let monthlyUSD = 0;
+    
+    if (amount > 0) {
+        // Calcul des rendements en tokens
+        dailyYield = (amount * currentAPR / 100 / 365);
+        monthlyYield = dailyYield * 30;
         
-        // APRs réels d'Aave sur Polygon (mis à jour régulièrement)
-        const aprs = {
-            weth: 5.2,
-            usdc: 3.8,
-            wmatic: 6.1,
-            wbtc: 4.9
-        };
-        
-        // Prix approximatifs en USD pour calculs
-        const prices = {
-            weth: 2500,
-            usdc: 1,
-            wmatic: 0.8,
-            wbtc: 45000
-        };
-        
-        const currentAPR = aprs[selectedAsset] || 5.0;
-        const price = prices[selectedAsset] || 1;
-        
-        // Calculs de rendement basés sur le montant saisi
-        let dailyYield = 0;
-        let monthlyYield = 0;
-        let dailyUSD = 0;
-        let monthlyUSD = 0;
-        
-        if (amount > 0) {
-            // Calcul des rendements en tokens
-            dailyYield = (amount * currentAPR / 100 / 365);
-            monthlyYield = dailyYield * 30;
-            
-            // Conversion en USD
-            dailyUSD = dailyYield * price;
-            monthlyUSD = monthlyYield * price;
-        }
-        
-        // Mettre à jour l'interface avec animation
-        const aprElement = document.getElementById('aaveCurrentAPR');
-        const dailyElement = document.getElementById('aaveDailyYield');
-        const monthlyElement = document.getElementById('aaveMonthlyYield');
-        const symbolElement = document.getElementById('aaveAssetSymbol');
-        const aTokenElement = document.getElementById('aTokenName');
-        
-        if (aprElement) {
-            aprElement.classList.add('updating');
-            aprElement.textContent = `${currentAPR}%`;
-            setTimeout(() => aprElement.classList.remove('updating'), 300);
-        }
-        
-        if (dailyElement) {
-            dailyElement.classList.add('updating');
-            if (amount > 0) {
-                dailyElement.textContent = `$${dailyUSD.toFixed(4)} (${dailyYield.toFixed(6)} ${selectedAsset.toUpperCase()})`;
-            } else {
-                dailyElement.textContent = `$0.0000`;
-            }
-            setTimeout(() => dailyElement.classList.remove('updating'), 300);
-        }
-        
-        if (monthlyElement) {
-            monthlyElement.classList.add('updating');
-            if (amount > 0) {
-                monthlyElement.textContent = `$${monthlyUSD.toFixed(2)} (${monthlyYield.toFixed(4)} ${selectedAsset.toUpperCase()})`;
-            } else {
-                monthlyElement.textContent = `$0.00`;
-            }
-            setTimeout(() => monthlyElement.classList.remove('updating'), 300);
-        }
-        
-        if (symbolElement) {
-            symbolElement.textContent = selectedAsset.toUpperCase();
-        }
-        
-        if (aTokenElement) {
-            aTokenElement.textContent = `a${selectedAsset.toUpperCase()}`;
-        }
-        
-        // Mettre à jour l'affichage du solde et la validation
-        this.updateBalanceDisplay();
-        this.validateAaveForm();
-        
-        console.log(`📊 Métriques Aave mises à jour:`, {
-            asset: selectedAsset,
-            amount: amount,
-            apr: currentAPR + '%',
-            dailyUSD: '$' + dailyUSD.toFixed(4),
-            monthlyUSD: '$' + monthlyUSD.toFixed(2)
-        });
+        // Conversion en USD
+        dailyUSD = dailyYield * price;
+        monthlyUSD = monthlyYield * price;
     }
+    
+    // Mettre à jour l'interface avec animation
+    const aprElement = document.getElementById('aaveCurrentAPR');
+    const dailyElement = document.getElementById('aaveDailyYield');
+    const monthlyElement = document.getElementById('aaveMonthlyYield');
+    const symbolElement = document.getElementById('aaveAssetSymbol');
+    const aTokenElement = document.getElementById('aTokenName');
+    
+    if (aprElement) {
+        aprElement.classList.add('updating');
+        aprElement.textContent = `${currentAPR}%`;
+        setTimeout(() => aprElement.classList.remove('updating'), 300);
+    }
+    
+    if (dailyElement) {
+        dailyElement.classList.add('updating');
+        if (amount > 0) {
+            dailyElement.textContent = `$${dailyUSD.toFixed(4)} (${dailyYield.toFixed(6)} ${selectedAsset.toUpperCase()})`;
+        } else {
+            dailyElement.textContent = `$0.0000`;
+        }
+        setTimeout(() => dailyElement.classList.remove('updating'), 300);
+    }
+    
+    if (monthlyElement) {
+        monthlyElement.classList.add('updating');
+        if (amount > 0) {
+            monthlyElement.textContent = `$${monthlyUSD.toFixed(2)} (${monthlyYield.toFixed(4)} ${selectedAsset.toUpperCase()})`;
+        } else {
+            monthlyElement.textContent = `$0.00`;
+        }
+        setTimeout(() => monthlyElement.classList.remove('updating'), 300);
+    }
+    
+    if (symbolElement) {
+        symbolElement.textContent = selectedAsset.toUpperCase();
+    }
+    
+    if (aTokenElement) {
+        aTokenElement.textContent = `a${selectedAsset.toUpperCase()}`;
+    }
+    
+    // NOUVEAU: Mettre à jour les informations de lending
+    this.updateLendingInfo(selectedAsset, currentAPR);
+    
+    // Mettre à jour l'affichage du solde et la validation
+    this.updateBalanceDisplay();
+    this.validateAaveForm();
+    
+    console.log(`📊 Métriques Aave mises à jour:`, {
+        asset: selectedAsset,
+        amount: amount,
+        apr: currentAPR + '%',
+        dailyUSD: '$' + dailyUSD.toFixed(4),
+        monthlyUSD: '$' + monthlyUSD.toFixed(2)
+    });
+}
+
+// ===== NOUVELLE FONCTION POUR METTRE À JOUR LES INFOS DE LENDING =====
+updateLendingInfo(selectedAsset, currentAPR) {
+    // Informations spécifiques à chaque asset
+    const assetInfos = {
+        weth: {
+            strategy: 'Lending ETH',
+            aToken: 'aWETH',
+            liquidity: 'Excellente',
+            features: 'Collatéral premium'
+        },
+        usdc: {
+            strategy: 'Lending Stablecoin',
+            aToken: 'aUSDC',
+            liquidity: 'Très élevée',
+            features: 'Stable, faible risque'
+        },
+        wmatic: {
+            strategy: 'Lending MATIC',
+            aToken: 'aWMATIC',
+            liquidity: 'Élevée',
+            features: 'Token natif Polygon'
+        },
+        wbtc: {
+            strategy: 'Lending Bitcoin',
+            aToken: 'aWBTC',
+            liquidity: 'Bonne',
+            features: 'Bitcoin sur Ethereum'
+        }
+    };
+    
+    const info = assetInfos[selectedAsset] || assetInfos.weth;
+    
+    // Mettre à jour les éléments du DOM
+    const strategyElement = document.querySelector('.info-item:nth-child(1) strong');
+    const aTokenElement = document.querySelector('.info-item:nth-child(2) strong');
+    const interestElement = document.querySelector('.info-item:nth-child(3) strong');
+    const liquidityElement = document.querySelector('.info-item:nth-child(4) strong');
+    
+    if (strategyElement) strategyElement.textContent = info.strategy;
+    if (aTokenElement) aTokenElement.textContent = info.aToken;
+    if (interestElement) interestElement.textContent = `${currentAPR}% APR`;
+    if (liquidityElement) liquidityElement.textContent = info.liquidity;
 
     async deployAaveStrategy() {
         if (!this.walletConnected) {
@@ -962,38 +1008,64 @@ class YieldMaxApp {
 
     // ===== UI UPDATES =====
     updatePositionsTable() {
-        const tableBody = document.getElementById('positionsTableBody');
-        
-        if (!tableBody) {
-            console.error('Élément positionsTableBody non trouvé');
-            return;
-        }
-        
-        if (this.positions.length === 0) {
-            tableBody.innerHTML = `
-                <div class="empty-state">
-                    <i class="fas fa-seedling"></i>
-                    <p>Aucune position active</p>
-                    <span>Déployez votre première stratégie pour commencer</span>
-                </div>
-            `;
-        } else {
-            tableBody.innerHTML = this.positions.map(position => `
-                <div class="position-row">
-                    <div class="position-cell">${position.strategy}</div>
-                    <div class="position-cell">${position.pool}</div>
-                    <div class="position-cell">${position.amount}</div>
-                    <div class="position-cell text-success">${position.apr}</div>
-                    <div class="position-cell text-success">${position.pnl}</div>
-                    <div class="position-cell">
-                        <button class="action-btn" onclick="app.closePosition(${position.id})">
-                            <i class="fas fa-times"></i>
-                        </button>
+    const tableBody = document.getElementById('positionsTableBody');
+    
+    if (!tableBody) {
+        console.error('Élément positionsTableBody non trouvé');
+        return;
+    }
+    
+    if (this.positions.length === 0) {
+        tableBody.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-seedling"></i>
+                <p>Aucune position active</p>
+                <span>Déployez votre première stratégie pour commencer</span>
+            </div>
+        `;
+    } else {
+        // NOUVELLE STRUCTURE: Utilise des div avec grid pour respecter les colonnes
+        tableBody.innerHTML = this.positions.map(position => `
+            <div class="position-row">
+                <div class="position-cell strategy-cell">
+                    <div class="cell-content">
+                        <i class="fas fa-university"></i>
+                        <span>${position.strategy}</span>
                     </div>
                 </div>
-            `).join('');
-        }
+                <div class="position-cell pool-cell">
+                    <span class="pool-name">${position.pool}</span>
+                </div>
+                <div class="position-cell amount-cell">
+                    <span class="amount-value">${position.amount}</span>
+                </div>
+                <div class="position-cell apr-cell">
+                    <span class="apr-value text-success">${position.apr}</span>
+                </div>
+                <div class="position-cell pnl-cell">
+                    <span class="pnl-value ${position.pnl.startsWith('+') ? 'text-success' : 'text-danger'}">${position.pnl}</span>
+                </div>
+                <div class="position-cell actions-cell">
+                    <button class="action-btn" onclick="app.closePosition(${position.id})" title="Fermer la position">
+                        <i class="fas fa-times"></i>
+                    </button>
+                    ${position.txHash ? `
+                        <button class="action-btn view-btn" onclick="app.viewTransaction('${position.txHash}')" title="Voir la transaction">
+                            <i class="fas fa-external-link-alt"></i>
+                        </button>
+                    ` : ''}
+                </div>
+            </div>
+        `).join('');
     }
+}
+
+// ===== NOUVELLE FONCTION POUR VOIR LES TRANSACTIONS =====
+viewTransaction(txHash) {
+    const url = `https://polygonscan.com/tx/${txHash}`;
+    window.open(url, '_blank');
+    this.showNotification('🔗 Transaction ouverte dans PolygonScan', 'info');
+}
 
     updateDashboardStats() {
         // Calculer les statistiques du portefeuille
