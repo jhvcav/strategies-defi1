@@ -22,7 +22,7 @@ const STRATEGY_ABI = [
 const POLYGON_TOKENS = {
     WETH: "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619",
     USDC: "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174",
-    POL: "0x455e53CBB86018Ac2B8092FdCd39d8444aFFC3F6"
+    WMATIC: "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270"
 };
 
 // ===== GLOBAL STATE MANAGEMENT =====
@@ -148,12 +148,12 @@ class YieldMaxApp {
         // Configuration des tokens selon le pool
         let token0, token1;
         switch(selectedPool) {
-            case 'eth-usdc':
+            case 'weth-usdc':
                 token0 = POLYGON_TOKENS.WETH;
                 token1 = POLYGON_TOKENS.USDC;
                 break;
             case 'matic-usdc':
-                token0 = POLYGON_TOKENS.POL;
+                token0 = POLYGON_TOKENS.WMATIC;
                 token1 = POLYGON_TOKENS.USDC;
                 break;
             default:
