@@ -1,3 +1,33 @@
+// Vérifier si les variables sont déjà définies
+if (typeof POLYGON_CONTRACTS === 'undefined') {
+    // ===== CONTRACT CONFIGURATION =====
+    const POLYGON_CONTRACTS = {
+        STRATEGY_UNISWAP_V3: "0x669227b0bB3A6BFC717fe8bEA17EEF3cB37f5eBC"
+    };
+}
+
+if (typeof POLYGON_CHAIN_ID === 'undefined') {
+    const POLYGON_CHAIN_ID = 137;
+}
+
+if (typeof POLYGON_TOKENS === 'undefined') {
+    // Tokens Polygon - Addresses correctes et vérifiées
+    const POLYGON_TOKENS = {
+        WETH: "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619",
+        USDC: "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174",
+        WMATIC: "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270"
+    };
+}
+
+// ABI simplifié pour les fonctions principales - pas besoin de le redéclarer
+const STRATEGY_ABI = [
+    "function createPosition(address token0, address token1, uint24 fee, int24 tickLower, int24 tickUpper, uint256 amount0Desired, uint256 amount1Desired, uint256 amount0Min, uint256 amount1Min) external payable returns (uint256 tokenId)",
+    "function createPositionAuto(address token0, address token1, uint24 fee, uint256 rangePercentage, uint256 amount0Desired, uint256 amount1Desired) external payable returns (uint256 tokenId)",
+    "function getUserPositions(address user) external view returns (tuple(uint256 tokenId, address token0, address token1, uint24 fee, int24 tickLower, int24 tickUpper, uint128 liquidity, uint256 amount0Deposited, uint256 amount1Deposited, uint256 feesCollected0, uint256 feesCollected1, uint256 lastCollectionTime, bool active)[] memory)",
+    "function collectFees(uint256 tokenId) external returns (uint256 amount0, uint256 amount1)",
+    "function closePosition(uint256 tokenId) external"
+];
+
 console.log('🚀 DÉBUT app.js');
 
 // ===== CONTRACT CONFIGURATION =====
@@ -8,15 +38,6 @@ const POLYGON_CONTRACTS = {
 const POLYGON_CHAIN_ID = 137;
 
 console.log('Définition de la classe YieldMaxApp...');
-
-// ABI simplifié pour les fonctions principales
-const STRATEGY_ABI = [
-    "function createPosition(address token0, address token1, uint24 fee, int24 tickLower, int24 tickUpper, uint256 amount0Desired, uint256 amount1Desired, uint256 amount0Min, uint256 amount1Min) external payable returns (uint256 tokenId)",
-    "function createPositionAuto(address token0, address token1, uint24 fee, uint256 rangePercentage, uint256 amount0Desired, uint256 amount1Desired) external payable returns (uint256 tokenId)",
-    "function getUserPositions(address user) external view returns (tuple(uint256 tokenId, address token0, address token1, uint24 fee, int24 tickLower, int24 tickUpper, uint128 liquidity, uint256 amount0Deposited, uint256 amount1Deposited, uint256 feesCollected0, uint256 feesCollected1, uint256 lastCollectionTime, bool active)[] memory)",
-    "function collectFees(uint256 tokenId) external returns (uint256 amount0, uint256 amount1)",
-    "function closePosition(uint256 tokenId) external"
-];
 
 // Tokens Polygon
 const POLYGON_TOKENS = {
@@ -121,132 +142,155 @@ class YieldMaxApp {
     }
 
     async deployUniswapStrategy() {
-    if (!this.walletConnected) {
-        alert('Veuillez connecter votre wallet');
-        return;
-    }
-
-    // Vérifier qu'on est sur Polygon
-    const chainId = await window.ethereum.request({ method: 'eth_chainId' });
-    if (parseInt(chainId, 16) !== POLYGON_CHAIN_ID) {
-        alert('Veuillez vous connecter au réseau Polygon');
-        return;
-    }
-
-    const ethAmount = document.getElementById('ethAmount').value;
-    const selectedPool = document.getElementById('poolSelect').value;
-    const selectedRange = document.querySelector('.range-btn.active')?.dataset.range || 10;
-    
-    if (!ethAmount || ethAmount <= 0) {
-        alert('Veuillez entrer un montant valide');
-        return;
-    }
-
-    this.showLoadingModal('Création de position sur Polygon...');
-
-    try {
-        // Configuration des tokens selon le pool
-        let token0, token1;
-        switch(selectedPool) {
-            case 'weth-usdc':
-                token0 = POLYGON_TOKENS.WETH;
-                token1 = POLYGON_TOKENS.USDC;
-                break;
-            case 'matic-usdc':
-                token0 = POLYGON_TOKENS.WMATIC;
-                token1 = POLYGON_TOKENS.USDC;
-                break;
-            default:
-                token0 = POLYGON_TOKENS.WETH;
-                token1 = POLYGON_TOKENS.USDC;
+        if (!this.walletConnected) {
+            alert('Veuillez connecter votre wallet');
+            return;
         }
 
-        // Initialiser ethers
-        const provider = new ethers.BrowserProvider(window.ethereum);
-        const signer = await provider.getSigner();
+        // Vérifier qu'on est sur Polygon
+        const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+        if (parseInt(chainId, 16) !== POLYGON_CHAIN_ID) {
+            alert('Veuillez vous connecter au réseau Polygon');
+            return;
+        }
 
-        // Paramètres pour la transaction
-        const amount0Desired = ethers.parseEther(ethAmount);
-        const amount1Desired = ethers.parseUnits("0", 6); // Pas d'USDC pour ETH only
-        const rangePercentage = parseInt(selectedRange) * 100; // 10% = 1000
+        const ethAmount = document.getElementById('ethAmount').value;
+        const selectedPool = document.getElementById('poolSelect').value;
+        const selectedRange = document.querySelector('.range-btn.active')?.dataset.range || 10;
+        
+        if (!ethAmount || ethAmount <= 0) {
+            alert('Veuillez entrer un montant valide');
+            return;
+        }
 
-        console.log('Paramètres transaction:', {
-            token0,
-            token1,
-            fee: 3000,
-            rangePercentage,
-            amount0Desired: amount0Desired.toString(),
-            amount1Desired: amount1Desired.toString()
-        });
+        this.showLoadingModal('Création de position sur Polygon...');
 
-        // Créer l'instance du contrat
-        const contract = new ethers.Contract(
-            POLYGON_CONTRACTS.STRATEGY_UNISWAP_V3,
-            STRATEGY_ABI,
-            signer
-        );
-
-        // Appel au contrat avec ETH
-        const tx = await contract.createPositionAuto(
-            token0,
-            token1,
-            3000, // 0.3% fee
-            rangePercentage,
-            amount0Desired,
-            amount1Desired,
-            {
-                value: amount0Desired, // Envoyer ETH
-                gasLimit: 500000 // Limite de gas
+        try {
+            // Configuration des tokens selon le pool
+            let token0, token1, swapTokens = false;
+            
+            switch(selectedPool) {
+                case 'weth-usdc':
+                    // Pour Uniswap V3, l'ordre des tokens est important (doivent être dans l'ordre croissant d'adresse)
+                    // Comparons les adresses pour déterminer l'ordre correct
+                    if (POLYGON_TOKENS.WETH.toLowerCase() < POLYGON_TOKENS.USDC.toLowerCase()) {
+                        token0 = POLYGON_TOKENS.WETH;
+                        token1 = POLYGON_TOKENS.USDC;
+                    } else {
+                        token0 = POLYGON_TOKENS.USDC;
+                        token1 = POLYGON_TOKENS.WETH;
+                        swapTokens = true;
+                    }
+                    break;
+                case 'matic-usdc':
+                    if (POLYGON_TOKENS.WMATIC.toLowerCase() < POLYGON_TOKENS.USDC.toLowerCase()) {
+                        token0 = POLYGON_TOKENS.WMATIC;
+                        token1 = POLYGON_TOKENS.USDC;
+                    } else {
+                        token0 = POLYGON_TOKENS.USDC;
+                        token1 = POLYGON_TOKENS.WMATIC;
+                        swapTokens = true;
+                    }
+                    break;
+                default:
+                    if (POLYGON_TOKENS.WETH.toLowerCase() < POLYGON_TOKENS.USDC.toLowerCase()) {
+                        token0 = POLYGON_TOKENS.WETH;
+                        token1 = POLYGON_TOKENS.USDC;
+                    } else {
+                        token0 = POLYGON_TOKENS.USDC;
+                        token1 = POLYGON_TOKENS.WETH;
+                        swapTokens = true;
+                    }
             }
-        );
 
-        console.log('Transaction envoyée:', tx.hash);
-        
-        // Attendre la confirmation
-        const receipt = await tx.wait();
-        console.log('Transaction confirmée:', receipt);
+            // Initialiser ethers
+            const provider = new ethers.BrowserProvider(window.ethereum);
+            const signer = await provider.getSigner();
 
-        // Récupérer le tokenId du log
-        const tokenId = receipt.logs[0]?.topics[1]; // Simplifié
-        
-        // Ajouter la position à l'UI
-        const newPosition = {
-            id: Date.now(),
-            strategy: 'Uniswap V3 (Real)',
-            pool: selectedPool.toUpperCase(),
-            amount: `${ethAmount} ETH`,
-            apr: '78.5%',
-            pnl: '+0.00%',
-            status: 'active',
-            tokenId: tokenId
-        };
-        
-        this.positions.push(newPosition);
-        this.updatePositionsTable();
-        this.updateDashboardStats();
-        
-        this.hideLoadingModal();
-        
-        alert(`✅ Position créée avec succès!
-        
+            // Paramètres pour la transaction
+            const amount0Desired = swapTokens ? ethers.parseUnits("0", 6) : ethers.parseEther(ethAmount);
+            const amount1Desired = swapTokens ? ethers.parseEther(ethAmount) : ethers.parseUnits("0", 6);
+            const rangePercentage = parseInt(selectedRange) * 100; // 10% = 1000
+
+            console.log('Paramètres transaction:', {
+                token0,
+                token1,
+                fee: 3000,
+                rangePercentage,
+                amount0Desired: amount0Desired.toString(),
+                amount1Desired: amount1Desired.toString(),
+                swapTokens: swapTokens,
+                value: swapTokens ? amount1Desired.toString() : amount0Desired.toString()
+            });
+
+            // Créer l'instance du contrat
+            const contract = new ethers.Contract(
+                POLYGON_CONTRACTS.STRATEGY_UNISWAP_V3,
+                STRATEGY_ABI,
+                signer
+            );
+
+            // Appel au contrat avec ETH
+            const tx = await contract.createPositionAuto(
+                token0,
+                token1,
+                3000, // 0.3% fee
+                rangePercentage,
+                amount0Desired,
+                amount1Desired,
+                {
+                    value: swapTokens ? amount1Desired : amount0Desired, // Envoyer ETH au bon endroit
+                    gasLimit: 800000 // Augmentation de la limite de gas
+                }
+            );
+
+            console.log('Transaction envoyée:', tx.hash);
+            
+            // Attendre la confirmation
+            const receipt = await tx.wait();
+            console.log('Transaction confirmée:', receipt);
+
+            // Récupérer le tokenId du log
+            const tokenId = receipt.logs[0]?.topics[1]; // Simplifié
+            
+            // Ajouter la position à l'UI
+            const newPosition = {
+                id: Date.now(),
+                strategy: 'Uniswap V3 (Real)',
+                pool: selectedPool.toUpperCase(),
+                amount: `${ethAmount} ETH`,
+                apr: '78.5%',
+                pnl: '+0.00%',
+                status: 'active',
+                tokenId: tokenId
+            };
+            
+            this.positions.push(newPosition);
+            this.updatePositionsTable();
+            this.updateDashboardStats();
+            
+            this.hideLoadingModal();
+            
+            alert(`✅ Position créée avec succès!
+            
 📄 Transaction: ${receipt.hash}
 🏷️ Token ID: ${tokenId}
 💰 Montant: ${ethAmount} ETH
 🔗 Voir sur PolygonScan: https://polygonscan.com/tx/${receipt.hash}`);
-        
-    } catch (error) {
-        this.hideLoadingModal();
-        console.error('Erreur transaction:', error);
-        
-        if (error.code === 4001) {
-            alert('Transaction annulée par l\'utilisateur');
-        } else if (error.code === -32603) {
-            alert('Erreur de gas - Augmentez la limite ou vérifiez vos fonds');
-        } else {
-            alert(`Erreur: ${error.message}`);
+            
+        } catch (error) {
+            this.hideLoadingModal();
+            console.error('Erreur transaction:', error);
+            
+            if (error.code === 4001) {
+                alert('Transaction annulée par l\'utilisateur');
+            } else if (error.code === -32603) {
+                alert('Erreur de gas - Augmentez la limite ou vérifiez vos fonds');
+            } else {
+                alert(`Erreur: ${error.message}`);
+            }
         }
     }
-}
 
     // ===== AAVE STRATEGY =====
     updateAaveMetrics() {
@@ -806,27 +850,4 @@ function copyToClipboard(text) {
     });
 }   
 
-console.log('🏁 FIN app.js');
-
-
-// ===== ERROR HANDLING =====
-window.addEventListener('error', (event) => {
-    console.error('Global error:', event.error);
-    app?.showNotification('Une erreur est survenue', 'error');
-});
-
-window.addEventListener('unhandledrejection', (event) => {
-    console.error('Unhandled promise rejection:', event.reason);
-    app?.showNotification('Erreur de connexion', 'error');
-});
-
-// ===== PERFORMANCE MONITORING =====
-if ('performance' in window) {
-    window.addEventListener('load', () => {
-        setTimeout(() => {
-            const perfData = performance.timing;
-            const loadTime = perfData.loadEventEnd - perfData.navigationStart;
-            console.log(`Page load time: ${loadTime}ms`);
-        }, 0);
-    });
-}
+console.log('🏁 FIN app.js - Version corrigée');
