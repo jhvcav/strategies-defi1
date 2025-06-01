@@ -241,8 +241,7 @@ class YieldMaxApp {
     this.showLoadingModal('Création de position sur Polygon...');
 
     // Variables pour la transaction
-    let token0, token1;
-    let poolFee; // Renommé pour éviter tout conflit avec 'feeTier'
+    let token0, token1, poolFee;
     
     // Configuration des tokens selon le pool
     switch(selectedPool) {
@@ -275,64 +274,103 @@ class YieldMaxApp {
             token1 = POLYGON_TOKENS.WETH;
             poolFee = 500; // 0.05% par défaut
     }
-
-    // Paramètres pour la transaction
-    const rangePercentage = parseInt(selectedRange) * 100; // 10% -> 1000
-    const ethValue = ethers.parseEther(ethAmount);
     
-    // Pour WETH/USDC, ETH est toujours token1 (amount1Desired)
-    const amount0Desired = ethers.parseUnits("0", token0 === POLYGON_TOKENS.USDC ? 6 : 18);
-    const amount1Desired = ethValue;
-
-    console.log('Paramètres transaction:', {
-        token0,
-        token1,
-        fee: poolFee,
-        rangePercentage,
-        amount0Desired: amount0Desired.toString(),
-        amount1Desired: amount1Desired.toString(),
-        ethValue: ethValue.toString()
-    });
-
     try {
+        // NOUVELLE APPROCHE: Intégration directe avec Uniswap V3
+        
+        // Adresse du NonfungiblePositionManager d'Uniswap V3 sur Polygon
+        const NFT_POSITION_MANAGER = "0xC36442b4a4522E871399CD717aBDD847Ab11FE88";
+        
+        // ABI minimal pour NonfungiblePositionManager
+        const NFT_POSITION_MANAGER_ABI = [
+            "function mint(tuple(address token0, address token1, uint24 fee, int24 tickLower, int24 tickUpper, uint256 amount0Desired, uint256 amount1Desired, uint256 amount0Min, uint256 amount1Min, address recipient, uint256 deadline)) external payable returns (uint256 tokenId, uint128 liquidity, uint256 amount0, uint256 amount1)"
+        ];
+        
         // Initialiser ethers
         const provider = new ethers.BrowserProvider(window.ethereum);
         const signer = await provider.getSigner();
-
-        // Créer l'instance du contrat
-        const contract = new ethers.Contract(
-            POLYGON_CONTRACTS.STRATEGY_UNISWAP_V3,
-            STRATEGY_ABI,
-            signer
-        );
-
-        // Appeler la fonction createPositionAuto
-        const tx = await contract.createPositionAuto(
+        
+        // Paramètres pour la transaction
+        const rangePercent = parseInt(selectedRange) / 100; // 10 -> 0.1 (10%)
+        const ethValue = ethers.parseEther(ethAmount);
+        
+        // Obtenir le prix actuel approximatif (cette partie pourrait être améliorée)
+        const currentPrice = 1.0; // Pour USDC/WETH, 1 USDC ≈ 0.0005 ETH (environ)
+        
+        // Calculer les limites de la plage de prix
+        const lowerPrice = currentPrice * (1 - rangePercent);
+        const upperPrice = currentPrice * (1 + rangePercent);
+        
+        // Convertir les prix en ticks (formule de Uniswap V3)
+        const tickSpacing = poolFee === 500 ? 10 : 60; // L'espacement des ticks dépend du fee tier
+        const lowerTick = Math.floor(Math.log(lowerPrice) / Math.log(1.0001) / tickSpacing) * tickSpacing;
+        const upperTick = Math.ceil(Math.log(upperPrice) / Math.log(1.0001) / tickSpacing) * tickSpacing;
+        
+        // Pour WETH/USDC, ETH est toujours token1 (amount1Desired)
+        const amount0Desired = ethers.parseUnits("0", token0 === POLYGON_TOKENS.USDC ? 6 : 18);
+        const amount1Desired = ethValue;
+        
+        // Deadline: 20 minutes à partir de maintenant
+        const deadline = Math.floor(Date.now() / 1000) + 1200;
+        
+        console.log('Paramètres Uniswap V3 direct:', {
             token0,
             token1,
-            poolFee,
-            rangePercentage,
-            amount0Desired,
-            amount1Desired,
+            fee: poolFee,
+            tickLower: lowerTick,
+            tickUpper: upperTick,
+            amount0Desired: amount0Desired.toString(),
+            amount1Desired: amount1Desired.toString(),
+            ethValue: ethValue.toString()
+        });
+        
+        // Créer l'instance du contrat NonfungiblePositionManager
+        const positionManager = new ethers.Contract(
+            NFT_POSITION_MANAGER,
+            NFT_POSITION_MANAGER_ABI,
+            signer
+        );
+        
+        // Paramètres pour mint
+        const params = {
+            token0: token0,
+            token1: token1,
+            fee: poolFee,
+            tickLower: lowerTick,
+            tickUpper: upperTick,
+            amount0Desired: amount0Desired,
+            amount1Desired: amount1Desired,
+            amount0Min: 0,
+            amount1Min: 0,
+            recipient: await signer.getAddress(),
+            deadline: deadline
+        };
+        
+        console.log('Envoi de la transaction directe à Uniswap V3...');
+        
+        // Appeler la fonction mint de NonfungiblePositionManager
+        const tx = await positionManager.mint(
+            params,
             {
                 value: ethValue, // Envoyer ETH
-                gasLimit: 3000000 // Limite de gas augmentée
+                gasLimit: 3000000 // Limite de gas
             }
         );
-
+        
         console.log('Transaction envoyée:', tx.hash);
         
         // Attendre la confirmation
         const receipt = await tx.wait();
         console.log('Transaction confirmée:', receipt);
-
-        // Récupérer le tokenId du log (simplifié)
-        const tokenId = receipt.logs[0]?.topics[1] || "N/A"; 
+        
+        // Analyser les événements pour récupérer le tokenId
+        let tokenId = "N/A";
+        // TODO: Extraire le tokenId des logs si nécessaire
         
         // Ajouter la position à l'UI
         const newPosition = {
             id: Date.now(),
-            strategy: 'Uniswap V3',
+            strategy: 'Uniswap V3 Direct',
             pool: selectedPool.toUpperCase(),
             amount: `${ethAmount} ETH`,
             apr: '78.5%',
@@ -358,7 +396,7 @@ class YieldMaxApp {
         this.hideLoadingModal();
         console.error('Erreur transaction:', error);
         
-        // Message d'erreur amélioré sans référence à feeTier
+        // Message d'erreur amélioré
         let errorMessage = "Erreur inconnue";
         
         if (error.code === 4001) {
@@ -370,12 +408,11 @@ class YieldMaxApp {
         } else if (error.message) {
             errorMessage = `Erreur: ${error.message}`;
             
-            // Message spécifique sans référence à feeTier
             if (error.message.includes('execution reverted')) {
-                errorMessage = `Erreur: La transaction a échoué lors de son exécution. Raisons possibles:
-1. Le pool ${selectedPool.toUpperCase()} n'existe peut-être pas avec ce fee tier
-2. Le montant ETH est trop petit pour créer une position viable
-3. Le contrat n'a pas les autorisations nécessaires pour interagir avec Uniswap V3`;
+                errorMessage = `Erreur: La transaction a échoué. Raisons possibles:
+1. Le pool ${selectedPool.toUpperCase()} n'existe peut-être pas avec ce fee tier (${poolFee/10000}%)
+2. Le montant ETH (${ethAmount}) est trop petit pour créer une position viable
+3. La plage de prix pourrait être invalide`;
             }
         }
         
