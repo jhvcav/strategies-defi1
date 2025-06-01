@@ -26,7 +26,7 @@
                     <div class="network-selector">
                         <select id="networkSelect">
                             <option value="ethereum">Ethereum</option>
-                            <option value="polygon">Polygon</option>
+                            <option value="polygon" selected>Polygon</option>
                             <option value="arbitrum">Arbitrum</option>
                             <option value="bsc">BSC</option>
                         </select>
@@ -44,12 +44,12 @@
             <!-- Dashboard Overview -->
             <section class="dashboard-overview">
                 <div class="contract-info">
-    <p><strong>Contrat Uniswap V3:</strong> 
-       <a href="https://polygonscan.com/address/0x669227b0bB3A6BFC717fe8bEA17EEF3cB37f5eBC" target="_blank">
-           0x669227b0bB3A6BFC717fe8bEA17EEF3cB37f5eBC
-       </a>
-    </p>
-</div>
+                    <p><strong>Contrat Uniswap V3:</strong> 
+                       <a href="https://polygonscan.com/address/0x669227b0bB3A6BFC717fe8bEA17EEF3cB37f5eBC" target="_blank">
+                           0x669227b0bB3A6BFC717fe8bEA17EEF3cB37f5eBC
+                       </a>
+                    </p>
+                </div>
                 <div class="stats-grid">
                     <div class="stat-card">
                         <div class="stat-icon">
@@ -127,9 +127,9 @@
                             <div class="input-group">
                                 <label>Pool de Liquidité</label>
                                 <select id="poolSelect">
-                                    <option value="eth-usdc">WETH/USDC (0.3%)</option>
+                                    <option value="weth-usdc">WETH/USDC (0.3%)</option>
                                     <option value="matic-usdc">WMATIC/USDC (0.3%)</option>
-                                    <option value="btc-eth">WBTC/ETH (0.3%)</option>
+                                    <option value="wbtc-eth">WBTC/ETH (0.3%)</option>
                                     <option value="matic-eth">WMATIC/WETH (0.3%)</option>
                                 </select>
                             </div>
@@ -374,9 +374,6 @@
         </div>
     </div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.1/ethers.umd.min.js"></script>
-    <script src="app.js"></script>
-    </body>
-    </html>
     <script src="app.js"></script>
 </body>
 </html>
