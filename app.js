@@ -388,6 +388,124 @@ class YieldMaxApp {
             alert('Erreur lors du déploiement de la stratégie Aave');
         }
     }
+    // Test final : créer une position avec SEULEMENT USDC
+    // pour isoler le problème
+    async testUSDCOnlyPosition() {
+    if (!this.walletConnected) {
+        alert('Veuillez connecter votre wallet');
+        return;
+    }
+
+    this.showLoadingModal('Test position USDC uniquement...');
+
+    try {
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        const signer = await provider.getSigner();
+        const userAddress = await signer.getAddress();
+        
+        console.log("=== TEST POSITION USDC SEULEMENT ===");
+        
+        // Configuration
+        const usdcAmount = "50"; // 50 USDC seulement
+        const usdcValue = ethers.parseUnits(usdcAmount, 6);
+        
+        // Vérifier solde USDC
+        const ERC20_ABI = [
+            "function balanceOf(address account) view returns (uint256)",
+            "function approve(address spender, uint256 amount) returns (bool)"
+        ];
+        const usdcContract = new ethers.Contract(POLYGON_TOKENS.USDC, ERC20_ABI, provider);
+        const usdcBalance = await usdcContract.balanceOf(userAddress);
+        
+        if (usdcBalance < usdcValue) {
+            this.hideLoadingModal();
+            alert(`Solde USDC insuffisant! Vous avez ${ethers.formatUnits(usdcBalance, 6)} USDC`);
+            return;
+        }
+        
+        // Approuver USDC
+        const NFT_POSITION_MANAGER = "0xC36442b4a4522E871399CD717aBDD847Ab11FE88";
+        console.log('Approbation USDC...');
+        const usdcWithSigner = usdcContract.connect(signer);
+        const approveUSDCTx = await usdcWithSigner.approve(NFT_POSITION_MANAGER, usdcValue);
+        await approveUSDCTx.wait();
+        console.log('✅ USDC approuvé');
+        
+        // Récupérer infos du pool
+        const FACTORY_ADDRESS = "0x1F98431c8aD98523631AE4a59f267346ea31F984";
+        const FACTORY_ABI = ["function getPool(address tokenA, address tokenB, uint24 fee) external view returns (address pool)"];
+        const factory = new ethers.Contract(FACTORY_ADDRESS, FACTORY_ABI, provider);
+        const poolAddress = await factory.getPool(POLYGON_TOKENS.USDC, POLYGON_TOKENS.WETH, 500);
+        
+        const POOL_ABI = ["function slot0() external view returns (uint160 sqrtPriceX96, int24 tick, uint16 observationIndex, uint16 observationCardinality, uint16 observationCardinalityNext, uint8 feeProtocol, bool unlocked)"];
+        const poolContract = new ethers.Contract(poolAddress, POOL_ABI, provider);
+        const slot0 = await poolContract.slot0();
+        const currentTick = slot0.tick;
+        
+        // Calculer des ticks très larges pour minimiser les erreurs
+        const tickSpacing = 10;
+        const tickRange = 10000; // Très large
+        const tickLower = Math.floor((Number(currentTick) - tickRange) / tickSpacing) * tickSpacing;
+        const tickUpper = Math.ceil((Number(currentTick) + tickRange) / tickSpacing) * tickSpacing;
+        
+        console.log('Pool:', poolAddress);
+        console.log('Tick actuel:', currentTick.toString());
+        console.log('Ticks larges:', tickLower, 'à', tickUpper);
+        
+        // Position avec SEULEMENT USDC (pas d'ETH/WETH)
+        const NFT_POSITION_MANAGER_ABI = [
+            "function mint(tuple(address token0, address token1, uint24 fee, int24 tickLower, int24 tickUpper, uint256 amount0Desired, uint256 amount1Desired, uint256 amount0Min, uint256 amount1Min, address recipient, uint256 deadline) params) external payable returns (uint256 tokenId, uint128 liquidity, uint256 amount0, uint256 amount1)"
+        ];
+        
+        const positionManager = new ethers.Contract(NFT_POSITION_MANAGER, NFT_POSITION_MANAGER_ABI, signer);
+        const deadline = Math.floor(Date.now() / 1000) + 1200;
+        
+        const mintParams = {
+            token0: POLYGON_TOKENS.USDC,  // USDC
+            token1: POLYGON_TOKENS.WETH,  // WETH
+            fee: 500,
+            tickLower,
+            tickUpper,
+            amount0Desired: usdcValue,    // 50 USDC
+            amount1Desired: 0,            // PAS de WETH
+            amount0Min: 0,
+            amount1Min: 0,
+            recipient: userAddress,
+            deadline
+        };
+        
+        console.log('🧪 Test USDC seulement:', {
+            amount0: usdcAmount + ' USDC',
+            amount1: '0 WETH',
+            ticks: `${tickLower} à ${tickUpper}`,
+            tickRange: 'Très large pour éviter les erreurs'
+        });
+        
+        // Transaction SANS ETH (value: 0)
+        const tx = await positionManager.mint(mintParams, {
+            value: 0, // PAS d'ETH natif
+            gasLimit: 5000000
+        });
+        
+        console.log('📤 Transaction USDC-only envoyée:', tx.hash);
+        
+        const receipt = await tx.wait();
+        console.log('✅ SUCCESS USDC-only!', receipt.hash);
+        
+        this.hideLoadingModal();
+        alert(`🎉 SUCCÈS AVEC USDC SEULEMENT!\n\nTransaction: ${tx.hash}\n\nCela prouve que le problème vient du mélange ETH+USDC!\n\nMaintenant nous savons qu'il faut adapter l'approche.`);
+        
+    } catch (error) {
+        this.hideLoadingModal();
+        console.error('❌ Erreur USDC-only:', error);
+        
+        if (error.message.includes('execution reverted')) {
+            alert(`❌ Même le test USDC-only a échoué!\n\nCela indique un problème plus profond:\n- Pool non compatible\n- Ticks incorrects\n- Ou restrictions du contrat\n\nErreur: ${error.message}`);
+        } else {
+            alert('Erreur USDC-only: ' + error.message);
+        }
+    }
+}
 
     // ===== FLASH LOAN STRATEGY =====
     async executeFlashLoan(opportunity) {
