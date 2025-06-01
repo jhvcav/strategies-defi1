@@ -213,14 +213,14 @@ class YieldMaxApp {
         return;
     }
 
-    this.showLoadingModal('Création position directe...');
+    this.showLoadingModal('Test final avec ratios corrects...');
 
     try {
         const provider = new ethers.BrowserProvider(window.ethereum);
         const signer = await provider.getSigner();
         const userAddress = await signer.getAddress();
         
-        console.log("=== APPROCHE DIRECTE (sans conversion WETH) ===");
+        console.log("=== TEST FINAL AVEC RATIOS CORRECTS ===");
         
         // Vérifier les soldes
         const ethBalance = await provider.getBalance(userAddress);
@@ -232,21 +232,7 @@ class YieldMaxApp {
             return;
         }
         
-        // Approuver USDC seulement
-        const usdcEquivalent = parseFloat(ethAmount) * 2500;
-        const usdcRequired = ethers.parseUnits(usdcEquivalent.toString(), 6);
-        
-        const ERC20_ABI = ["function approve(address spender, uint256 amount) returns (bool)"];
-        const usdcContract = new ethers.Contract(POLYGON_TOKENS.USDC, ERC20_ABI, signer);
-        
-        const NFT_POSITION_MANAGER = "0xC36442b4a4522E871399CD717aBDD847Ab11FE88";
-        
-        console.log('Approbation USDC...');
-        const approveUSDCTx = await usdcContract.approve(NFT_POSITION_MANAGER, usdcRequired);
-        await approveUSDCTx.wait();
-        console.log('✅ USDC approuvé');
-        
-        // Récupérer infos du pool
+        // Calculer le ratio correct selon le prix du pool
         const FACTORY_ADDRESS = "0x1F98431c8aD98523631AE4a59f267346ea31F984";
         const FACTORY_ABI = ["function getPool(address tokenA, address tokenB, uint24 fee) external view returns (address pool)"];
         const factory = new ethers.Contract(FACTORY_ADDRESS, FACTORY_ABI, provider);
@@ -256,6 +242,46 @@ class YieldMaxApp {
         const poolContract = new ethers.Contract(poolAddress, POOL_ABI, provider);
         const slot0 = await poolContract.slot0();
         const currentTick = slot0.tick;
+        const currentPrice = slot0.sqrtPriceX96;
+        
+        // Calculer le prix réel USDC/WETH à partir du sqrtPriceX96
+        const Q96 = 2n ** 96n;
+        const priceRatio = Number(currentPrice) / Number(Q96);
+        const actualPrice = priceRatio * priceRatio; // token1/token0 = WETH/USDC
+        const usdcPerWeth = 1 / actualPrice * (10 ** 12); // Ajuster pour les décimales (18-6=12)
+        
+        console.log('Prix du pool USDC/WETH:', usdcPerWeth.toFixed(2), 'USDC per WETH');
+        
+        // Calculer les montants exacts selon le prix du marché
+        const ethAmountFloat = parseFloat(ethAmount);
+        const usdcNeeded = ethAmountFloat * usdcPerWeth;
+        const usdcRequired = ethers.parseUnits(usdcNeeded.toFixed(6), 6);
+        
+        console.log(`Pour ${ethAmount} ETH, il faut ${usdcNeeded.toFixed(2)} USDC`);
+        
+        // Vérifier le solde USDC
+        const ERC20_ABI = [
+            "function balanceOf(address account) view returns (uint256)",
+            "function approve(address spender, uint256 amount) returns (bool)"
+        ];
+        const usdcContract = new ethers.Contract(POLYGON_TOKENS.USDC, ERC20_ABI, provider);
+        const usdcBalance = await usdcContract.balanceOf(userAddress);
+        
+        console.log(`USDC disponible: ${ethers.formatUnits(usdcBalance, 6)}`);
+        
+        if (usdcBalance < usdcRequired) {
+            this.hideLoadingModal();
+            alert(`Solde USDC insuffisant! Vous avez ${ethers.formatUnits(usdcBalance, 6)} USDC, il faut ${usdcNeeded.toFixed(2)} USDC`);
+            return;
+        }
+        
+        // Approuver USDC
+        const NFT_POSITION_MANAGER = "0xC36442b4a4522E871399CD717aBDD847Ab11FE88";
+        console.log('Approbation USDC...');
+        const usdcWithSigner = usdcContract.connect(signer);
+        const approveUSDCTx = await usdcWithSigner.approve(NFT_POSITION_MANAGER, usdcRequired);
+        await approveUSDCTx.wait();
+        console.log('✅ USDC approuvé');
         
         // Calculer ticks
         const tickSpacing = 10;
@@ -265,61 +291,55 @@ class YieldMaxApp {
         
         console.log('Pool:', poolAddress);
         console.log('Tick actuel:', currentTick.toString());
-        console.log('Ticks:', tickLower, 'à', tickUpper);
+        console.log('Ticks calculés:', tickLower, 'à', tickUpper);
         
-        // CORRECTION CLÉE: utiliser multicall avec unwrapWETH9
+        // TECHNIQUE SIMPLE: mint normal avec les deux montants
         const NFT_POSITION_MANAGER_ABI = [
-            "function mint(tuple(address token0, address token1, uint24 fee, int24 tickLower, int24 tickUpper, uint256 amount0Desired, uint256 amount1Desired, uint256 amount0Min, uint256 amount1Min, address recipient, uint256 deadline) params) external payable returns (uint256 tokenId, uint128 liquidity, uint256 amount0, uint256 amount1)",
-            "function multicall(bytes[] data) external payable returns (bytes[] results)",
-            "function refundETH() external payable"
+            "function mint(tuple(address token0, address token1, uint24 fee, int24 tickLower, int24 tickUpper, uint256 amount0Desired, uint256 amount1Desired, uint256 amount0Min, uint256 amount1Min, address recipient, uint256 deadline) params) external payable returns (uint256 tokenId, uint128 liquidity, uint256 amount0, uint256 amount1)"
         ];
         
         const positionManager = new ethers.Contract(NFT_POSITION_MANAGER, NFT_POSITION_MANAGER_ABI, signer);
         const deadline = Math.floor(Date.now() / 1000) + 1200;
         
-        // Paramètres mint - CORRECTION: amount1Desired = 0 pour WETH car on envoie ETH
+        // Paramètres avec les VRAIES quantités
         const mintParams = {
             token0: POLYGON_TOKENS.USDC,  // USDC
             token1: POLYGON_TOKENS.WETH,  // WETH
             fee: 500,
             tickLower,
             tickUpper,
-            amount0Desired: usdcRequired, // USDC (approuvé)
-            amount1Desired: 0,            // WETH = 0 car on envoie ETH via value
+            amount0Desired: usdcRequired, // USDC exact
+            amount1Desired: ethValue,     // WETH équivalent à l'ETH envoyé
             amount0Min: 0,
             amount1Min: 0,
             recipient: userAddress,
             deadline
         };
         
-        console.log('🎯 Paramètres avec ETH natif:', {
-            amount0: usdcEquivalent + ' USDC (approuvé)',
-            amount1: '0 WETH (sera fourni via ETH natif)',
-            ethValue: ethAmount + ' ETH',
+        console.log('🎯 Paramètres avec ratios du marché:', {
+            amount0: `${usdcNeeded.toFixed(2)} USDC`,
+            amount1: `${ethAmount} WETH (via ETH)`,
+            ratio: `1 ETH = ${usdcNeeded.toFixed(2)} USDC`,
             ticks: `${tickLower} à ${tickUpper}`
         });
         
-        // Encoder les calls pour multicall
-        const mintCall = positionManager.interface.encodeFunctionData("mint", [mintParams]);
-        const refundCall = positionManager.interface.encodeFunctionData("refundETH", []);
-        
-        // Transaction avec multicall (mint + refund ETH non utilisé)
-        const tx = await positionManager.multicall([mintCall, refundCall], {
-            value: ethValue, // ETH natif fourni ici
+        // Transaction simple avec mint + ETH natif
+        const tx = await positionManager.mint(mintParams, {
+            value: ethValue, // ETH natif sera converti en WETH
             gasLimit: 5000000
         });
         
-        console.log('📤 Transaction envoyée:', tx.hash);
+        console.log('📤 Transaction ratios corrects envoyée:', tx.hash);
         
         const receipt = await tx.wait();
-        console.log('✅ SUCCESS!', receipt.hash);
+        console.log('✅ SUCCESS avec ratios du marché!', receipt.hash);
         
         this.hideLoadingModal();
-        alert(`🎉 SUCCÈS!\n\nTransaction: ${tx.hash}\n\nLa position a été créée avec ETH natif + USDC!`);
+        alert(`🎉 SUCCÈS!\n\nTransaction: ${tx.hash}\n\nPosition créée avec les ratios exacts du marché:\n${ethAmount} ETH + ${usdcNeeded.toFixed(2)} USDC`);
         
     } catch (error) {
         this.hideLoadingModal();
-        console.error('❌ Erreur:', error);
+        console.error('❌ Erreur ratios:', error);
         alert('Erreur: ' + error.message);
     }
 }
