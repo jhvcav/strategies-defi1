@@ -239,7 +239,7 @@ class YieldMaxApp {
 
     try {
         // Configuration des tokens selon le pool
-        let token0, token1, isETHToken0;
+        let token0, token1, isETHToken0, feeTier;
         console.log('Pool sélectionné:', selectedPool);
         
         switch(selectedPool) {
@@ -248,6 +248,7 @@ class YieldMaxApp {
                 token0 = POLYGON_TOKENS.USDC;
                 token1 = POLYGON_TOKENS.WETH;
                 isETHToken0 = false; // ETH est token1
+                feeTier = 500; // 0.05% pour WETH/USDC sur Polygon (selon la recherche)
                 break;
             case 'matic-usdc':
                 // Pour MATIC/USDC, vérifier l'ordre
@@ -260,6 +261,7 @@ class YieldMaxApp {
                     token1 = POLYGON_TOKENS.WMATIC;
                     isETHToken0 = false; // MATIC est token1
                 }
+                feeTier = 500; // 0.05% par défaut
                 break;
             case 'wbtc-eth':
                 // Pour WBTC/ETH, vérifier l'ordre
@@ -272,6 +274,7 @@ class YieldMaxApp {
                     token1 = POLYGON_TOKENS.WBTC;
                     isETHToken0 = true; // ETH est token0
                 }
+                feeTier = 3000; // 0.3% par défaut
                 break;
             case 'matic-eth':
                 // Pour MATIC/ETH, vérifier l'ordre
@@ -284,17 +287,20 @@ class YieldMaxApp {
                     token1 = POLYGON_TOKENS.WMATIC;
                     isETHToken0 = true; // ETH est token0
                 }
+                feeTier = 3000; // 0.3% par défaut
                 break;
             default:
                 token0 = POLYGON_TOKENS.USDC;
                 token1 = POLYGON_TOKENS.WETH;
                 isETHToken0 = false; // Par défaut, ETH est token1
+                feeTier = 500; // 0.05% par défaut
         }
 
         console.log('Adresses de tokens:', {
             token0,
             token1,
-            isETHToken0
+            isETHToken0,
+            feeTier
         });
 
         // Initialiser ethers
@@ -320,7 +326,7 @@ class YieldMaxApp {
         console.log('Paramètres transaction finaux:', {
             token0,
             token1,
-            fee: 3000,
+            fee: feeTier,
             rangePercentage: parseInt(selectedRange) * 100,
             amount0Desired: amount0Desired.toString(),
             amount1Desired: amount1Desired.toString(),
@@ -338,13 +344,13 @@ class YieldMaxApp {
         const tx = await contract.createPositionAuto(
             token0,
             token1,
-            3000, // 0.3% fee
+            feeTier, // IMPORTANT: Utiliser le fee tier correct
             parseInt(selectedRange) * 100, // 10% = 1000
             amount0Desired,
             amount1Desired,
             {
                 value: ethValue, // Envoyer ETH
-                gasLimit: 1500000 // Limite de gas encore plus élevée
+                gasLimit: 2000000 // Limite de gas encore plus élevée
             }
         );
 
@@ -400,7 +406,7 @@ class YieldMaxApp {
             
             // Si c'est toujours un problème de pool inexistant
             if (error.message.includes('execution reverted')) {
-                errorMessage = `Le pool ${selectedPool.toUpperCase()} n'existe peut-être pas sur Uniswap V3 Polygon ou pourrait utiliser un fee tier différent de 0.3%. Essayez avec un autre pool ou vérifiez sur app.uniswap.org.`;
+                errorMessage = `Le pool ${selectedPool.toUpperCase()} n'existe peut-être pas sur Uniswap V3 Polygon avec ce fee tier. Essayez avec un autre fee tier (comme 0.05% au lieu de 0.3% pour WETH/USDC) ou vérifiez sur app.uniswap.org.`;
             }
         }
         
