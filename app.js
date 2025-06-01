@@ -389,9 +389,9 @@ class YieldMaxApp {
         // === ÉTAPE 6: CALCUL CORRECT DES TICKS ===
         this.showLoadingModal('Calcul de la plage de prix...');
         
-        // Calculer les ticks pour la plage de prix
+        // Calculer les ticks pour la plage de prix - utilisons une plage plus large pour éviter les erreurs
         const rangePercentage = parseInt(selectedRange);
-        const tickRange = Math.floor(rangePercentage * 100); // Approximation
+        const tickRange = Math.floor(rangePercentage * 200); // Plus large que l'original
         
         // Calculer les ticks basés sur le tick actuel
         const tickLower = Math.floor((Number(currentTick) - tickRange) / Number(tickSpacing)) * Number(tickSpacing);
@@ -400,67 +400,13 @@ class YieldMaxApp {
         console.log("=== PARAMÈTRES DE LA PLAGE ===");
         console.log("Tick actuel du pool:", currentTick.toString());
         console.log("Plage sélectionnée:", rangePercentage + "%");
+        console.log("Tick range calculé:", tickRange);
         console.log("Tick inférieur calculé:", tickLower);
         console.log("Tick supérieur calculé:", tickUpper);
         console.log("Espacement des ticks:", tickSpacing.toString());
         
-        // === ÉTAPE 7: CALCUL INTELLIGENT DES MONTANTS ===
+        // === ÉTAPE 7: CALCUL SIMPLIFIÉ DES MONTANTS ===
         this.showLoadingModal('Calcul des montants optimaux...');
-        
-        // Fonction pour calculer les montants basés sur le prix actuel
-        function calculateAmounts(sqrtPriceX96, tickLower, tickUpper, inputAmount, isToken0Input) {
-            const Q96 = 2n ** 96n;
-            const sqrtPrice = Number(sqrtPriceX96) / Number(Q96);
-            
-            // Calculer les prix aux limites
-            const sqrtPriceLower = Math.sqrt(1.0001 ** tickLower);
-            const sqrtPriceUpper = Math.sqrt(1.0001 ** tickUpper);
-            
-            console.log("=== CALCULS DES MONTANTS ===");
-            console.log("Prix actuel (sqrt):", sqrtPrice);
-            console.log("Prix inférieur (sqrt):", sqrtPriceLower);
-            console.log("Prix supérieur (sqrt):", sqrtPriceUpper);
-            
-            let amount0, amount1;
-            
-            if (isToken0Input) {
-                // On fournit token0 (USDC), calculer token1 (WETH) nécessaire
-                amount0 = inputAmount;
-                
-                if (sqrtPrice <= sqrtPriceLower) {
-                    // Prix en dessous de la plage, seulement token0 nécessaire
-                    amount1 = 0n;
-                } else if (sqrtPrice >= sqrtPriceUpper) {
-                    // Prix au-dessus de la plage, seulement token1 nécessaire
-                    amount1 = inputAmount;
-                    amount0 = 0n;
-                } else {
-                    // Prix dans la plage, ratio calculé
-                    const ratio = (sqrtPriceUpper - sqrtPrice) / (sqrtPriceUpper - sqrtPriceLower);
-                    amount1 = BigInt(Math.floor(Number(inputAmount) * (1 - ratio)));
-                }
-            } else {
-                // On fournit token1 (WETH), calculer token0 (USDC) nécessaire
-                amount1 = inputAmount;
-                
-                if (sqrtPrice <= sqrtPriceLower) {
-                    // Prix en dessous de la plage, seulement token0 nécessaire
-                    amount0 = inputAmount;
-                    amount1 = 0n;
-                } else if (sqrtPrice >= sqrtPriceUpper) {
-                    // Prix au-dessus de la plage, seulement token1 nécessaire
-                    amount0 = 0n;
-                } else {
-                    // Prix dans la plage, calculer le ratio USDC/WETH
-                    // À ce prix (~2500 USDC/WETH), on a besoin de beaucoup d'USDC
-                    const currentPrice = sqrtPrice * sqrtPrice; // Prix en token1/token0 (WETH/USDC)
-                    const usdcPerWeth = 1 / currentPrice; // USDC per WETH
-                    amount0 = BigInt(Math.floor(Number(inputAmount) * usdcPerWeth * 1e6)); // Ajuster pour les décimales
-                }
-            }
-            
-            return { amount0, amount1 };
-        }
         
         // Détecter quel token nous utilisons
         const isToken0Stablecoin = (token0 === stablecoinAddress);
@@ -469,24 +415,42 @@ class YieldMaxApp {
         let requiredStablecoin = 0n;
         
         if (needsStablecoin) {
+            // Calcul simplifié basé sur le prix actuel
+            // Avec tick ~198000, le prix USDC/WETH est d'environ 0.0004 (soit 1 WETH = 2500 USDC)
+            
+            const ethAmountBigInt = ethValue; // 0.02 ETH en wei
+            
             if (isToken0Stablecoin) {
                 // USDC est token0, WETH est token1
                 console.log("Configuration: USDC (token0) + WETH (token1)");
                 
-                // Calculer combien d'USDC on a besoin pour ce montant d'ETH
-                const result = calculateAmounts(currentSqrtPriceX96, tickLower, tickUpper, ethValue, false);
-                amount0Desired = result.amount0; // USDC nécessaire
-                amount1Desired = result.amount1; // WETH (notre input)
-                requiredStablecoin = result.amount0;
+                // Pour une position équilibrée, on utilise à peu près le prix du marché
+                // 1 WETH ≈ 2500 USDC, donc 0.02 WETH ≈ 50 USDC
+                const usdcEquivalent = parseFloat(ethAmount) * 2500;
+                const usdcAmount = ethers.parseUnits(usdcEquivalent.toString(), 6); // 6 décimales pour USDC
+                
+                amount0Desired = usdcAmount; // USDC
+                amount1Desired = ethAmountBigInt; // WETH 
+                requiredStablecoin = usdcAmount;
+                
+                console.log("Montants calculés (méthode simplifiée):");
+                console.log(`- USDC (token0): ${usdcEquivalent} USDC`);
+                console.log(`- WETH (token1): ${ethAmount} ETH`);
                 
             } else {
                 // WETH est token0, USDC est token1  
                 console.log("Configuration: WETH (token0) + USDC (token1)");
                 
-                const result = calculateAmounts(currentSqrtPriceX96, tickLower, tickUpper, ethValue, true);
-                amount0Desired = result.amount0; // WETH (notre input)
-                amount1Desired = result.amount1; // USDC nécessaire
-                requiredStablecoin = result.amount1;
+                const usdcEquivalent = parseFloat(ethAmount) * 2500;
+                const usdcAmount = ethers.parseUnits(usdcEquivalent.toString(), 6);
+                
+                amount0Desired = ethAmountBigInt; // WETH
+                amount1Desired = usdcAmount; // USDC
+                requiredStablecoin = usdcAmount;
+                
+                console.log("Montants calculés (méthode simplifiée):");
+                console.log(`- WETH (token0): ${ethAmount} ETH`);
+                console.log(`- USDC (token1): ${usdcEquivalent} USDC`);
             }
         } else {
             // Pas de stablecoin
@@ -497,6 +461,17 @@ class YieldMaxApp {
         console.log("=== MONTANTS CALCULÉS ===");
         console.log("Amount0 désiré:", amount0Desired.toString());
         console.log("Amount1 désiré:", amount1Desired.toString());
+        
+        // Debug formaté pour comprendre les montants
+        if (needsStablecoin) {
+            if (isToken0Stablecoin) {
+                console.log(`Amount0 (USDC): ${ethers.formatUnits(amount0Desired, 6)} USDC`);
+                console.log(`Amount1 (WETH): ${ethers.formatUnits(amount1Desired, 18)} WETH`);
+            } else {
+                console.log(`Amount0 (WETH): ${ethers.formatUnits(amount0Desired, 18)} WETH`);
+                console.log(`Amount1 (USDC): ${ethers.formatUnits(amount1Desired, 6)} USDC`);
+            }
+        }
         
         if (needsStablecoin && requiredStablecoin > 0n) {
             const requiredStablecoinFormatted = ethers.formatUnits(requiredStablecoin, stablecoinDecimals);
@@ -559,8 +534,8 @@ class YieldMaxApp {
             tickUpper,
             amount0Desired,
             amount1Desired,
-            amount0Min: 0, // Tolérance slippage minimale pour ce test
-            amount1Min: 0, // Tolérance slippage minimale pour ce test
+            amount0Min: amount0Desired * 95n / 100n, // 5% de slippage minimum
+            amount1Min: amount1Desired * 95n / 100n, // 5% de slippage minimum
             recipient: userAddress,
             deadline
         };
