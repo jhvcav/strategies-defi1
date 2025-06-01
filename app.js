@@ -1,26 +1,20 @@
-// Vérifier si les variables sont déjà définies
-if (typeof POLYGON_CONTRACTS === 'undefined') {
-    // ===== CONTRACT CONFIGURATION =====
-    const POLYGON_CONTRACTS = {
-        STRATEGY_UNISWAP_V3: "0x669227b0bB3A6BFC717fe8bEA17EEF3cB37f5eBC"
-    };
-}
+// Définition des variables globales avec var pour éviter les erreurs de redéclaration
+// ===== CONTRACT CONFIGURATION =====
+var POLYGON_CONTRACTS = {
+    STRATEGY_UNISWAP_V3: "0x669227b0bB3A6BFC717fe8bEA17EEF3cB37f5eBC"
+};
 
-if (typeof POLYGON_CHAIN_ID === 'undefined') {
-    const POLYGON_CHAIN_ID = 137;
-}
+var POLYGON_CHAIN_ID = 137;
 
-if (typeof POLYGON_TOKENS === 'undefined') {
-    // Tokens Polygon - Addresses correctes et vérifiées
-    const POLYGON_TOKENS = {
-        WETH: "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619",
-        USDC: "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174",
-        WMATIC: "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270"
-    };
-}
+// Tokens Polygon - Addresses correctes et vérifiées
+var POLYGON_TOKENS = {
+    WETH: "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619",
+    USDC: "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174",
+    WMATIC: "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270"
+};
 
-// ABI simplifié pour les fonctions principales - pas besoin de le redéclarer
-const STRATEGY_ABI = [
+// ABI simplifié pour les fonctions principales
+var STRATEGY_ABI = [
     "function createPosition(address token0, address token1, uint24 fee, int24 tickLower, int24 tickUpper, uint256 amount0Desired, uint256 amount1Desired, uint256 amount0Min, uint256 amount1Min) external payable returns (uint256 tokenId)",
     "function createPositionAuto(address token0, address token1, uint24 fee, uint256 rangePercentage, uint256 amount0Desired, uint256 amount1Desired) external payable returns (uint256 tokenId)",
     "function getUserPositions(address user) external view returns (tuple(uint256 tokenId, address token0, address token1, uint24 fee, int24 tickLower, int24 tickUpper, uint128 liquidity, uint256 amount0Deposited, uint256 amount1Deposited, uint256 feesCollected0, uint256 feesCollected1, uint256 lastCollectionTime, bool active)[] memory)",
@@ -30,21 +24,7 @@ const STRATEGY_ABI = [
 
 console.log('🚀 DÉBUT app.js');
 
-// ===== CONTRACT CONFIGURATION =====
-const POLYGON_CONTRACTS = {
-    STRATEGY_UNISWAP_V3: "0x669227b0bB3A6BFC717fe8bEA17EEF3cB37f5eBC"
-};
-
-const POLYGON_CHAIN_ID = 137;
-
 console.log('Définition de la classe YieldMaxApp...');
-
-// Tokens Polygon
-const POLYGON_TOKENS = {
-    WETH: "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619",
-    USDC: "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174",
-    WMATIC: "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270"
-};
 
 // ===== GLOBAL STATE MANAGEMENT =====
 class YieldMaxApp {
@@ -191,6 +171,16 @@ class YieldMaxApp {
                         token1 = POLYGON_TOKENS.WMATIC;
                         swapTokens = true;
                     }
+                    break;
+                case 'wbtc-eth':
+                    // Implémentation pour WBTC/ETH...
+                    token0 = "0x1BFD67037B42Cf73acF2047067bd4F2C47D9BfD6"; // WBTC
+                    token1 = POLYGON_TOKENS.WETH;
+                    break;
+                case 'matic-eth':
+                    // Implémentation pour MATIC/ETH...
+                    token0 = POLYGON_TOKENS.WMATIC;
+                    token1 = POLYGON_TOKENS.WETH;
                     break;
                 default:
                     if (POLYGON_TOKENS.WETH.toLowerCase() < POLYGON_TOKENS.USDC.toLowerCase()) {
@@ -450,38 +440,38 @@ class YieldMaxApp {
     }
 
     async loadUserPositions() {
-    if (!this.walletConnected) return;
+        if (!this.walletConnected) return;
 
-    try {
-        const provider = new ethers.BrowserProvider(window.ethereum);
-        const contract = new ethers.Contract(
-            POLYGON_CONTRACTS.STRATEGY_UNISWAP_V3,
-            STRATEGY_ABI,
-            provider
-        );
+        try {
+            const provider = new ethers.BrowserProvider(window.ethereum);
+            const contract = new ethers.Contract(
+                POLYGON_CONTRACTS.STRATEGY_UNISWAP_V3,
+                STRATEGY_ABI,
+                provider
+            );
 
-        const positions = await contract.getUserPositions(this.currentAccount);
-        console.log('Positions du contrat:', positions);
+            const positions = await contract.getUserPositions(this.currentAccount);
+            console.log('Positions du contrat:', positions);
 
-        // Convertir en format UI
-        this.positions = positions.filter(pos => pos.active).map(pos => ({
-            id: pos.tokenId.toString(),
-            strategy: 'Uniswap V3',
-            pool: 'ETH/USDC',
-            amount: `${ethers.formatEther(pos.amount0Deposited)} ETH`,
-            apr: '78.5%',
-            pnl: '+0.00%',
-            status: 'active',
-            tokenId: pos.tokenId.toString()
-        }));
+            // Convertir en format UI
+            this.positions = positions.filter(pos => pos.active).map(pos => ({
+                id: pos.tokenId.toString(),
+                strategy: 'Uniswap V3',
+                pool: 'ETH/USDC',
+                amount: `${ethers.formatEther(pos.amount0Deposited)} ETH`,
+                apr: '78.5%',
+                pnl: '+0.00%',
+                status: 'active',
+                tokenId: pos.tokenId.toString()
+            }));
 
-        this.updatePositionsTable();
-        this.updateDashboardStats();
-        
-    } catch (error) {
-        console.error('Erreur lors du chargement des positions:', error);
+            this.updatePositionsTable();
+            this.updateDashboardStats();
+            
+        } catch (error) {
+            console.error('Erreur lors du chargement des positions:', error);
+        }
     }
-}
 
     startRealTimeUpdates() {
         // Update metrics every 30 seconds
@@ -850,4 +840,27 @@ function copyToClipboard(text) {
     });
 }   
 
-console.log('🏁 FIN app.js - Version corrigée');
+console.log('🏁 FIN app.js');
+
+
+// ===== ERROR HANDLING =====
+window.addEventListener('error', (event) => {
+    console.error('Global error:', event.error);
+    app?.showNotification('Une erreur est survenue', 'error');
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+    console.error('Unhandled promise rejection:', event.reason);
+    app?.showNotification('Erreur de connexion', 'error');
+});
+
+// ===== PERFORMANCE MONITORING =====
+if ('performance' in window) {
+    window.addEventListener('load', () => {
+        setTimeout(() => {
+            const perfData = performance.timing;
+            const loadTime = perfData.loadEventEnd - perfData.navigationStart;
+            console.log(`Page load time: ${loadTime}ms`);
+        }, 0);
+    });
+}
