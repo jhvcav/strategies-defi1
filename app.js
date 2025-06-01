@@ -198,190 +198,215 @@ class YieldMaxApp {
     }
 
     async deployUniswapStrategy() {
-        console.log('Début du déploiement de la stratégie Uniswap...');
-        
-        if (!this.walletConnected) {
-            alert('Veuillez connecter votre wallet');
-            return;
-        }
+    console.log('Début du déploiement de la stratégie Uniswap...');
+    
+    if (!this.walletConnected) {
+        alert('Veuillez connecter votre wallet');
+        return;
+    }
 
-        // Vérifier qu'on est sur Polygon
-        try {
-            const chainId = await window.ethereum.request({ method: 'eth_chainId' });
-            const currentChainId = parseInt(chainId, 16);
-            
-            console.log('Chaîne actuelle pour le déploiement:', currentChainId);
-            
-            if (currentChainId !== POLYGON_CHAIN_ID) {
-                const confirmSwitch = confirm('Cette stratégie nécessite le réseau Polygon. Voulez-vous changer de réseau?');
-                if (confirmSwitch) {
-                    await this.switchToPolygon();
-                } else {
-                    return;
-                }
+    // Vérifier qu'on est sur Polygon
+    try {
+        const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+        const currentChainId = parseInt(chainId, 16);
+        
+        console.log('Chaîne actuelle pour le déploiement:', currentChainId);
+        
+        if (currentChainId !== POLYGON_CHAIN_ID) {
+            const confirmSwitch = confirm('Cette stratégie nécessite le réseau Polygon. Voulez-vous changer de réseau?');
+            if (confirmSwitch) {
+                await this.switchToPolygon();
+            } else {
+                return;
             }
-        } catch (error) {
-            console.error('Erreur lors de la vérification du réseau:', error);
-            alert('Impossible de vérifier le réseau actuel');
-            return;
         }
+    } catch (error) {
+        console.error('Erreur lors de la vérification du réseau:', error);
+        alert('Impossible de vérifier le réseau actuel');
+        return;
+    }
 
-        const ethAmount = document.getElementById('ethAmount').value;
-        const selectedPool = document.getElementById('poolSelect').value;
-        const selectedRange = document.querySelector('.range-btn.active')?.dataset.range || 10;
+    const ethAmount = document.getElementById('ethAmount').value;
+    const selectedPool = document.getElementById('poolSelect').value;
+    const selectedRange = document.querySelector('.range-btn.active')?.dataset.range || 10;
+    
+    if (!ethAmount || parseFloat(ethAmount) <= 0) {
+        alert('Veuillez entrer un montant valide');
+        return;
+    }
+
+    this.showLoadingModal('Création de position sur Polygon...');
+
+    try {
+        // Configuration des tokens selon le pool
+        let token0, token1, isETHToken0;
+        console.log('Pool sélectionné:', selectedPool);
         
-        if (!ethAmount || parseFloat(ethAmount) <= 0) {
-            alert('Veuillez entrer un montant valide');
-            return;
-        }
-
-        this.showLoadingModal('Création de position sur Polygon...');
-
-        try {
-            // Configuration des tokens selon le pool
-            let token0, token1;
-            console.log('Pool sélectionné:', selectedPool);
-            
-            switch(selectedPool) {
-                case 'weth-usdc':
-                    // Pour Uniswap V3, l'ordre des tokens doit être déterminé par leur adresse
-                    if (POLYGON_TOKENS.WETH.toLowerCase() < POLYGON_TOKENS.USDC.toLowerCase()) {
-                        token0 = POLYGON_TOKENS.WETH;
-                        token1 = POLYGON_TOKENS.USDC;
-                    } else {
-                        token0 = POLYGON_TOKENS.USDC;
-                        token1 = POLYGON_TOKENS.WETH;
-                    }
-                    break;
-                case 'matic-usdc':
-                    if (POLYGON_TOKENS.WMATIC.toLowerCase() < POLYGON_TOKENS.USDC.toLowerCase()) {
-                        token0 = POLYGON_TOKENS.WMATIC;
-                        token1 = POLYGON_TOKENS.USDC;
-                    } else {
-                        token0 = POLYGON_TOKENS.USDC;
-                        token1 = POLYGON_TOKENS.WMATIC;
-                    }
-                    break;
-                case 'wbtc-eth':
-                    if (POLYGON_TOKENS.WBTC.toLowerCase() < POLYGON_TOKENS.WETH.toLowerCase()) {
-                        token0 = POLYGON_TOKENS.WBTC;
-                        token1 = POLYGON_TOKENS.WETH;
-                    } else {
-                        token0 = POLYGON_TOKENS.WETH;
-                        token1 = POLYGON_TOKENS.WBTC;
-                    }
-                    break;
-                case 'matic-eth':
-                    if (POLYGON_TOKENS.WMATIC.toLowerCase() < POLYGON_TOKENS.WETH.toLowerCase()) {
-                        token0 = POLYGON_TOKENS.WMATIC;
-                        token1 = POLYGON_TOKENS.WETH;
-                    } else {
-                        token0 = POLYGON_TOKENS.WETH;
-                        token1 = POLYGON_TOKENS.WMATIC;
-                    }
-                    break;
-                default:
-                    token0 = POLYGON_TOKENS.WETH;
+        switch(selectedPool) {
+            case 'weth-usdc':
+                // IMPORTANT: Pour WETH/USDC sur Polygon, USDC est toujours token0 (adresse plus petite)
+                token0 = POLYGON_TOKENS.USDC;
+                token1 = POLYGON_TOKENS.WETH;
+                isETHToken0 = false; // ETH est token1
+                break;
+            case 'matic-usdc':
+                // Pour MATIC/USDC, vérifier l'ordre
+                if (POLYGON_TOKENS.WMATIC.toLowerCase() < POLYGON_TOKENS.USDC.toLowerCase()) {
+                    token0 = POLYGON_TOKENS.WMATIC;
                     token1 = POLYGON_TOKENS.USDC;
-            }
-
-            // Déterminer si le token d'entrée est token0 ou token1
-            const isToken0Input = token0.toLowerCase() === POLYGON_TOKENS.WETH.toLowerCase();
-            
-            console.log('Adresses de tokens:', {
-                token0,
-                token1,
-                isToken0Input
-            });
-
-            // Initialiser ethers
-            const provider = new ethers.BrowserProvider(window.ethereum);
-            const signer = await provider.getSigner();
-
-            // Paramètres pour la transaction
-            const amount0Desired = isToken0Input ? ethers.parseEther(ethAmount) : ethers.parseUnits("0", 6);
-            const amount1Desired = isToken0Input ? ethers.parseUnits("0", 6) : ethers.parseEther(ethAmount);
-            const rangePercentage = parseInt(selectedRange) * 100; // 10% = 1000
-
-            console.log('Paramètres transaction:', {
-                token0,
-                token1,
-                fee: 3000,
-                rangePercentage,
-                amount0Desired: amount0Desired.toString(),
-                amount1Desired: amount1Desired.toString(),
-                value: ethers.parseEther(ethAmount).toString()
-            });
-
-            // Créer l'instance du contrat
-            const contract = new ethers.Contract(
-                POLYGON_CONTRACTS.STRATEGY_UNISWAP_V3,
-                STRATEGY_ABI,
-                signer
-            );
-
-            // Appel au contrat avec ETH
-            const tx = await contract.createPositionAuto(
-                token0,
-                token1,
-                3000, // 0.3% fee
-                rangePercentage,
-                amount0Desired,
-                amount1Desired,
-                {
-                    value: ethers.parseEther(ethAmount), // Envoyer ETH
-                    gasLimit: 1000000 // Limite de gas augmentée
+                    isETHToken0 = true; // MATIC est token0
+                } else {
+                    token0 = POLYGON_TOKENS.USDC;
+                    token1 = POLYGON_TOKENS.WMATIC;
+                    isETHToken0 = false; // MATIC est token1
                 }
-            );
+                break;
+            case 'wbtc-eth':
+                // Pour WBTC/ETH, vérifier l'ordre
+                if (POLYGON_TOKENS.WBTC.toLowerCase() < POLYGON_TOKENS.WETH.toLowerCase()) {
+                    token0 = POLYGON_TOKENS.WBTC;
+                    token1 = POLYGON_TOKENS.WETH;
+                    isETHToken0 = false; // ETH est token1
+                } else {
+                    token0 = POLYGON_TOKENS.WETH;
+                    token1 = POLYGON_TOKENS.WBTC;
+                    isETHToken0 = true; // ETH est token0
+                }
+                break;
+            case 'matic-eth':
+                // Pour MATIC/ETH, vérifier l'ordre
+                if (POLYGON_TOKENS.WMATIC.toLowerCase() < POLYGON_TOKENS.WETH.toLowerCase()) {
+                    token0 = POLYGON_TOKENS.WMATIC;
+                    token1 = POLYGON_TOKENS.WETH;
+                    isETHToken0 = false; // ETH est token1
+                } else {
+                    token0 = POLYGON_TOKENS.WETH;
+                    token1 = POLYGON_TOKENS.WMATIC;
+                    isETHToken0 = true; // ETH est token0
+                }
+                break;
+            default:
+                token0 = POLYGON_TOKENS.USDC;
+                token1 = POLYGON_TOKENS.WETH;
+                isETHToken0 = false; // Par défaut, ETH est token1
+        }
 
-            console.log('Transaction envoyée:', tx.hash);
-            
-            // Attendre la confirmation
-            const receipt = await tx.wait();
-            console.log('Transaction confirmée:', receipt);
+        console.log('Adresses de tokens:', {
+            token0,
+            token1,
+            isETHToken0
+        });
 
-            // Récupérer le tokenId du log (simplifié)
-            const tokenId = receipt.logs[0]?.topics[1] || "N/A"; 
-            
-            // Ajouter la position à l'UI
-            const newPosition = {
-                id: Date.now(),
-                strategy: 'Uniswap V3',
-                pool: selectedPool.toUpperCase(),
-                amount: `${ethAmount} ETH`,
-                apr: '78.5%',
-                pnl: '+0.00%',
-                status: 'active',
-                tokenId: tokenId
-            };
-            
-            this.positions.push(newPosition);
-            this.updatePositionsTable();
-            this.updateDashboardStats();
-            
-            this.hideLoadingModal();
-            
-            alert(`✅ Position créée avec succès!
-            
+        // Initialiser ethers
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        const signer = await provider.getSigner();
+
+        // CORRECTION CLÉ: Configurer les montants en fonction de la position de l'ETH
+        let amount0Desired, amount1Desired;
+        const ethValue = ethers.parseEther(ethAmount);
+        
+        if (isETHToken0) {
+            // Si ETH est le premier token (token0)
+            amount0Desired = ethValue;
+            amount1Desired = ethers.parseUnits("0", selectedPool.includes('usdc') ? 6 : 18);
+            console.log("ETH comme token0");
+        } else {
+            // Si ETH est le second token (token1) - c'est le cas pour WETH/USDC
+            amount0Desired = ethers.parseUnits("0", selectedPool.includes('usdc') ? 6 : 18);
+            amount1Desired = ethValue;
+            console.log("ETH comme token1");
+        }
+
+        console.log('Paramètres transaction finaux:', {
+            token0,
+            token1,
+            fee: 3000,
+            rangePercentage: parseInt(selectedRange) * 100,
+            amount0Desired: amount0Desired.toString(),
+            amount1Desired: amount1Desired.toString(),
+            ethValue: ethValue.toString()
+        });
+
+        // Créer l'instance du contrat
+        const contract = new ethers.Contract(
+            POLYGON_CONTRACTS.STRATEGY_UNISWAP_V3,
+            STRATEGY_ABI,
+            signer
+        );
+        
+        // Appel au contrat avec ETH
+        const tx = await contract.createPositionAuto(
+            token0,
+            token1,
+            3000, // 0.3% fee
+            parseInt(selectedRange) * 100, // 10% = 1000
+            amount0Desired,
+            amount1Desired,
+            {
+                value: ethValue, // Envoyer ETH
+                gasLimit: 1500000 // Limite de gas encore plus élevée
+            }
+        );
+
+        console.log('Transaction envoyée:', tx.hash);
+        
+        // Attendre la confirmation
+        const receipt = await tx.wait();
+        console.log('Transaction confirmée:', receipt);
+
+        // Récupérer le tokenId du log
+        const tokenId = receipt.logs[0]?.topics[1] || "N/A"; 
+        
+        // Ajouter la position à l'UI
+        const newPosition = {
+            id: Date.now(),
+            strategy: 'Uniswap V3',
+            pool: selectedPool.toUpperCase(),
+            amount: `${ethAmount} ETH`,
+            apr: '78.5%',
+            pnl: '+0.00%',
+            status: 'active',
+            tokenId: tokenId
+        };
+        
+        this.positions.push(newPosition);
+        this.updatePositionsTable();
+        this.updateDashboardStats();
+        
+        this.hideLoadingModal();
+        
+        alert(`✅ Position créée avec succès!
+        
 📄 Transaction: ${tx.hash}
 🏷️ Token ID: ${tokenId}
 💰 Montant: ${ethAmount} ETH
 🔗 Voir sur PolygonScan: https://polygonscan.com/tx/${tx.hash}`);
+        
+    } catch (error) {
+        this.hideLoadingModal();
+        console.error('Erreur transaction:', error);
+        
+        // Message d'erreur amélioré
+        let errorMessage = "Erreur inconnue";
+        
+        if (error.code === 4001) {
+            errorMessage = 'Transaction annulée par l\'utilisateur';
+        } else if (error.code === -32603) {
+            errorMessage = 'Erreur de gas - Augmentez la limite ou vérifiez vos fonds';
+        } else if (error.reason) {
+            errorMessage = `Erreur: ${error.reason}`;
+        } else if (error.message) {
+            errorMessage = `Erreur: ${error.message}`;
             
-        } catch (error) {
-            this.hideLoadingModal();
-            console.error('Erreur transaction:', error);
-            
-            // Afficher un message d'erreur plus détaillé
-            if (error.code === 4001) {
-                alert('Transaction annulée par l\'utilisateur');
-            } else if (error.code === -32603) {
-                alert('Erreur de gas - Augmentez la limite ou vérifiez vos fonds');
-            } else {
-                alert(`Erreur de transaction: ${error.message || 'Erreur inconnue'}`);
+            // Si c'est toujours un problème de pool inexistant
+            if (error.message.includes('execution reverted')) {
+                errorMessage = `Le pool ${selectedPool.toUpperCase()} n'existe peut-être pas sur Uniswap V3 Polygon ou pourrait utiliser un fee tier différent de 0.3%. Essayez avec un autre pool ou vérifiez sur app.uniswap.org.`;
             }
         }
+        
+        alert(errorMessage);
     }
+}
 
     // ===== AAVE STRATEGY =====
     updateAaveMetrics() {
