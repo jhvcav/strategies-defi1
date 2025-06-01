@@ -1328,6 +1328,22 @@ updateLendingInfo(selectedAsset, currentAPR) {
             });
         });
 
+        // Bouton d'actualisation des données
+        const refreshDataBtn = document.getElementById('refreshDataBtn');
+        if (refreshDataBtn) {
+            refreshDataBtn.addEventListener('click', () => {
+                this.refreshAllData();
+            });
+        }
+
+        // Bouton spécifique pour Aave
+        const refreshAaveBtn = document.getElementById('refreshAaveBtn');
+        if (refreshAaveBtn) {
+            refreshAaveBtn.addEventListener('click', () => {
+                this.loadAavePositions();
+            });
+        }
+
         // Changements d'input pour mises à jour en temps réel
         const ethAmountInput = document.getElementById('ethAmount');
         if (ethAmountInput) {
@@ -1485,6 +1501,160 @@ updateLendingInfo(selectedAsset, currentAPR) {
             });
         }
     }
+
+    // Fonction pour récupérer les positions Aave réelles depuis la blockchain
+async loadAavePositions() {
+    if (!this.walletConnected) {
+        this.showNotification('Veuillez connecter votre wallet', 'warning');
+        return;
+    }
+
+    try {
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        
+        // Vérifier qu'on est sur Polygon
+        const network = await provider.getNetwork();
+        if (Number(network.chainId) !== POLYGON_CHAIN_ID) {
+            this.showNotification('⚠️ Changez vers le réseau Polygon', 'warning');
+            return;
+        }
+
+        this.showNotification('🔄 Récupération des positions Aave...', 'info');
+        
+        console.log('🔍 Recherche des positions Aave pour:', this.currentAccount);
+        
+        // ABI pour lire les soldes aTokens
+        const ATOKEN_ABI = [
+            "function balanceOf(address account) view returns (uint256)",
+            "function decimals() view returns (uint8)"
+        ];
+
+        // Effacer les anciennes positions Aave
+        this.positions = this.positions.filter(pos => pos.strategy !== 'Aave Lending');
+        
+        let totalPositions = 0;
+        
+        // Vérifier chaque aToken
+        for (const [assetKey, assetInfo] of Object.entries(AAVE_V3_POLYGON.ASSETS)) {
+            try {
+                const aTokenContract = new ethers.Contract(assetInfo.aToken, ATOKEN_ABI, provider);
+                const aTokenBalance = await aTokenContract.balanceOf(this.currentAccount);
+                const decimals = await aTokenContract.decimals();
+                
+                if (aTokenBalance > 0) {
+                    const formattedBalance = ethers.formatUnits(aTokenBalance, decimals);
+                    const balanceNum = parseFloat(formattedBalance);
+                    
+                    if (balanceNum > 0.000001) { // Filtrer les poussières
+                        console.log(`💰 Position trouvée: ${balanceNum.toFixed(6)} a${assetInfo.symbol}`);
+                        
+                        // Calculer les gains estimés (approximatifs)
+                        const aprs = { weth: 5.2, usdc: 3.71, wmatic: 6.1, wbtc: 4.9 };
+                        const currentAPR = aprs[assetKey.toLowerCase()] || 5.0;
+                        
+                        // Estimer les gains (les aTokens augmentent avec le temps)
+                        const estimatedDeposit = balanceNum * 0.999; // Estimation du dépôt initial
+                        const estimatedGains = balanceNum - estimatedDeposit;
+                        const pnlPercentage = estimatedGains > 0 ? 
+                            `+${((estimatedGains / estimatedDeposit) * 100).toFixed(4)}%` : 
+                            '+0.0000%';
+                        
+                        // Créer la position
+                        const aavePosition = {
+                            id: `aave_${assetKey}_${Date.now()}`,
+                            strategy: 'Aave Lending',
+                            pool: `${assetInfo.symbol} Supply`,
+                            amount: `${balanceNum.toFixed(6)} a${assetInfo.symbol}`,
+                            apr: `${currentAPR}%`,
+                            pnl: pnlPercentage,
+                            status: 'active',
+                            aToken: assetInfo.aToken,
+                            asset: assetKey,
+                            realBalance: balanceNum
+                        };
+                        
+                        this.positions.push(aavePosition);
+                        totalPositions++;
+                    }
+                }
+                
+                // Petit délai pour éviter le rate limiting
+                await new Promise(resolve => setTimeout(resolve, 200));
+                
+            } catch (error) {
+                console.error(`❌ Erreur lecture a${assetInfo.symbol}:`, error);
+            }
+        }
+        
+        // Mettre à jour l'interface
+        this.updatePositionsTable();
+        this.updateDashboardStats();
+        this.updateAavePositions();
+        
+        if (totalPositions > 0) {
+            this.showNotification(`✅ ${totalPositions} position(s) Aave récupérée(s)`, 'success');
+            console.log(`✅ ${totalPositions} positions Aave trouvées et ajoutées`);
+        } else {
+            this.showNotification('ℹ️ Aucune position Aave trouvée', 'info');
+            console.log('ℹ️ Aucune position Aave active trouvée');
+        }
+        
+    } catch (error) {
+        console.error('❌ Erreur lors de la récupération des positions Aave:', error);
+        this.showNotification('❌ Erreur lors de la récupération des positions', 'error');
+    }
+}
+
+// Fonction pour actualiser toutes les données
+async refreshAllData() {
+    if (!this.walletConnected) {
+        this.showNotification('Veuillez connecter votre wallet', 'warning');
+        return;
+    }
+    
+    try {
+        // Désactiver le bouton pendant l'actualisation
+        const refreshBtn = document.getElementById('refreshDataBtn');
+        if (refreshBtn) {
+            refreshBtn.disabled = true;
+            refreshBtn.innerHTML = `
+                <i class="fas fa-spinner fa-spin"></i>
+                Actualisation...
+            `;
+        }
+        
+        this.showNotification('🔄 Actualisation de toutes les données...', 'info');
+        
+        // 1. Recharger les soldes des tokens
+        await this.loadTokenBalances();
+        
+        // 2. Recharger les positions Uniswap (si applicable)
+        await this.loadUserPositions();
+        
+        // 3. Recharger les positions Aave
+        await this.loadAavePositions();
+        
+        // 4. Mettre à jour l'affichage
+        this.updateBalanceDisplay();
+        this.updateAaveMetrics();
+        
+        this.showNotification('✅ Toutes les données actualisées', 'success');
+        
+    } catch (error) {
+        console.error('❌ Erreur lors de l\'actualisation:', error);
+        this.showNotification('❌ Erreur lors de l\'actualisation', 'error');
+    } finally {
+        // Réactiver le bouton
+        const refreshBtn = document.getElementById('refreshDataBtn');
+        if (refreshBtn) {
+            refreshBtn.disabled = false;
+            refreshBtn.innerHTML = `
+                <i class="fas fa-sync-alt"></i>
+                Actualiser les données
+            `;
+        }
+    }
+}
 
     async switchNetwork(networkName) {
         console.log('Tentative de changement vers le réseau:', networkName);

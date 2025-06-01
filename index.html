@@ -188,6 +188,23 @@ Aave Strategy <body>
                 </div>
             </section>
 
+            <section class="dashboard-overview">
+                <div class="contract-info">
+                    <p><strong>Contrat Uniswap V3:</strong> 
+                        <a href="https://polygonscan.com/address/0x669227b0bB3A6BFC717fe8bEA17EEF3cB37f5eBC" target="_blank">
+                            0x669227b0bB3A6BFC717fe8bEA17EEF3cB37f5eBC
+                        </a>
+                    </p>
+                    <!-- NOUVEAU: Bouton d'actualisation principal -->
+                    <button class="refresh-data-btn" id="refreshDataBtn">
+                        <i class="fas fa-sync-alt"></i>
+                        Actualiser les données
+                    </button>
+                </div>
+                <div class="stats-grid">
+                </div>
+            </section>
+
             <!-- Strategy Selection -->
             <section class="strategy-section">
                 <h2 class="section-title">Stratégies de Yield Farming</h2>
@@ -440,6 +457,20 @@ Aave Strategy <body>
                 </div>
             </div>
         </div>
+
+        <!-- 2. BOUTON SPÉCIFIQUE AAVE dans la section positions -->
+<section class="positions-section">
+    <div class="section-header">
+        <h2 class="section-title">Positions Actives</h2>
+        <!-- NOUVEAU: Bouton Aave spécifique -->
+        <button class="refresh-aave-btn" id="refreshAaveBtn">
+            <i class="fas fa-university"></i>
+            Récupérer positions Aave
+        </button>
+    </div>
+    <div class="positions-table">
+    </div>
+</section>
 
         <!-- Actions - même style que les autres -->
         <div class="strategy-actions">
