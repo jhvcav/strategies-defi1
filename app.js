@@ -312,11 +312,11 @@ class YieldMaxApp {
         ]);
         
         const currentTick = slot0.tick;
-        const currentPrice = slot0.sqrtPriceX96;
+        const currentSqrtPriceX96 = slot0.sqrtPriceX96;
         
         console.log("=== INFORMATIONS DU POOL ===");
         console.log("Tick actuel:", currentTick.toString());
-        console.log("Prix actuel (sqrtPriceX96):", currentPrice.toString());
+        console.log("Prix actuel (sqrtPriceX96):", currentSqrtPriceX96.toString());
         console.log("Espacement des ticks:", tickSpacing.toString());
 
         // ABI minimal pour ERC20
@@ -343,7 +343,7 @@ class YieldMaxApp {
         
         // === ÉTAPE 5: DÉTECTION INTELLIGENTE DU STABLECOIN ===
         let stablecoinContract, stablecoinDecimals, stablecoinBalance, stablecoinSymbol;
-        let stablecoinAmount = ethers.parseUnits("0", 6); // Valeur par défaut
+        let stablecoinAddress;
         
         if (needsStablecoin) {
             console.log("=== DÉTECTION DU STABLECOIN DISPONIBLE ===");
@@ -369,22 +369,12 @@ class YieldMaxApp {
                     console.log(`✅ ${candidate.name} trouvé: ${candidate.result.balance} ${candidate.result.symbol}`);
                     
                     // Utiliser cette adresse de stablecoin
-                    const candidateAddress = candidate.address;
-                    stablecoinContract = new ethers.Contract(candidateAddress, ERC20_ABI, provider);
+                    stablecoinAddress = candidate.address;
+                    stablecoinContract = new ethers.Contract(stablecoinAddress, ERC20_ABI, provider);
                     stablecoinBalance = ethers.parseUnits(candidate.result.balance, candidate.result.decimals);
                     stablecoinDecimals = candidate.result.decimals;
                     stablecoinSymbol = candidate.result.symbol;
                     stablecoinFound = true;
-                    
-                    // Mettre à jour token0 si nécessaire
-                    if (candidateAddress < token1) {
-                        // Ce stablecoin devient token0
-                        console.log(`${candidate.name} sera token0`);
-                    } else {
-                        // Ce stablecoin devient token1  
-                        console.log(`${candidate.name} sera token1`);
-                    }
-                    
                     break;
                 }
             }
@@ -394,50 +384,9 @@ class YieldMaxApp {
                 alert('❌ Aucun solde USDC trouvé sur votre wallet.\n\nVeuillez vous assurer d\'avoir:\n- USDC Native, ou\n- USDC.e (Bridged)\nsur le réseau Polygon.');
                 return;
             }
-            
-            // Calculer le montant de stablecoin nécessaire
-            const ethToUsdRate = 2500; // Prix ETH approximatif
-            const stablecoinEquivalent = parseFloat(ethAmount) * ethToUsdRate;
-            stablecoinAmount = ethers.parseUnits(stablecoinEquivalent.toString(), stablecoinDecimals);
-            
-            console.log(`💰 ${stablecoinSymbol} requis: ${stablecoinEquivalent} ${stablecoinSymbol}`);
-            console.log(`💳 ${stablecoinSymbol} disponible: ${ethers.formatUnits(stablecoinBalance, stablecoinDecimals)} ${stablecoinSymbol}`);
-            
-            if (stablecoinBalance < stablecoinAmount) {
-                this.hideLoadingModal();
-                const availableStablecoin = ethers.formatUnits(stablecoinBalance, stablecoinDecimals);
-                alert(`❌ Solde ${stablecoinSymbol} insuffisant!\n\nVous avez: ${availableStablecoin} ${stablecoinSymbol}\nRequis: ~${stablecoinEquivalent} ${stablecoinSymbol}\n\nPour ${ethAmount} ETH, vous avez besoin d'environ ${stablecoinEquivalent} ${stablecoinSymbol} pour équilibrer la position.`);
-                return;
-            }
-            
-            // === ÉTAPE 6: VÉRIFICATION ET APPROBATION ===
-            console.log("=== VÉRIFICATION DE L'APPROBATION ===");
-            this.showLoadingModal(`Vérification des approbations ${stablecoinSymbol}...`);
-            
-            const NFT_POSITION_MANAGER = "0xC36442b4a4522E871399CD717aBDD847Ab11FE88";
-            const currentAllowance = await stablecoinContract.allowance(userAddress, NFT_POSITION_MANAGER);
-            
-            console.log(`Approbation actuelle: ${ethers.formatUnits(currentAllowance, stablecoinDecimals)} ${stablecoinSymbol}`);
-            
-            if (currentAllowance < stablecoinAmount) {
-                console.log('🔓 Approbation stablecoin requise...');
-                this.showLoadingModal(`Approbation ${stablecoinSymbol} en cours...`);
-                
-                const stablecoinWithSigner = stablecoinContract.connect(signer);
-                const approveTx = await stablecoinWithSigner.approve(
-                    NFT_POSITION_MANAGER,
-                    ethers.parseUnits("1000000", stablecoinDecimals)
-                );
-                
-                console.log('📤 Transaction d\'approbation envoyée:', approveTx.hash);
-                const approveReceipt = await approveTx.wait();
-                console.log('✅ Approbation confirmée:', approveReceipt.hash);
-            } else {
-                console.log('✅ Approbation existante suffisante');
-            }
         }
         
-        // === ÉTAPE 7: CALCUL CORRECT DES TICKS ===
+        // === ÉTAPE 6: CALCUL CORRECT DES TICKS ===
         this.showLoadingModal('Calcul de la plage de prix...');
         
         // Calculer les ticks pour la plage de prix
@@ -455,7 +404,141 @@ class YieldMaxApp {
         console.log("Tick supérieur calculé:", tickUpper);
         console.log("Espacement des ticks:", tickSpacing.toString());
         
-        // === ÉTAPE 8: CRÉATION DE LA POSITION ===
+        // === ÉTAPE 7: CALCUL INTELLIGENT DES MONTANTS ===
+        this.showLoadingModal('Calcul des montants optimaux...');
+        
+        // Fonction pour calculer les montants basés sur le prix actuel
+        function calculateAmounts(sqrtPriceX96, tickLower, tickUpper, inputAmount, isToken0Input) {
+            const Q96 = 2n ** 96n;
+            const sqrtPrice = Number(sqrtPriceX96) / Number(Q96);
+            
+            // Calculer les prix aux limites
+            const sqrtPriceLower = Math.sqrt(1.0001 ** tickLower);
+            const sqrtPriceUpper = Math.sqrt(1.0001 ** tickUpper);
+            
+            console.log("=== CALCULS DES MONTANTS ===");
+            console.log("Prix actuel (sqrt):", sqrtPrice);
+            console.log("Prix inférieur (sqrt):", sqrtPriceLower);
+            console.log("Prix supérieur (sqrt):", sqrtPriceUpper);
+            
+            let amount0, amount1;
+            
+            if (isToken0Input) {
+                // On fournit token0 (USDC), calculer token1 (WETH) nécessaire
+                amount0 = inputAmount;
+                
+                if (sqrtPrice <= sqrtPriceLower) {
+                    // Prix en dessous de la plage, seulement token0 nécessaire
+                    amount1 = 0n;
+                } else if (sqrtPrice >= sqrtPriceUpper) {
+                    // Prix au-dessus de la plage, seulement token1 nécessaire
+                    amount1 = inputAmount;
+                    amount0 = 0n;
+                } else {
+                    // Prix dans la plage, ratio calculé
+                    const ratio = (sqrtPriceUpper - sqrtPrice) / (sqrtPriceUpper - sqrtPriceLower);
+                    amount1 = BigInt(Math.floor(Number(inputAmount) * (1 - ratio)));
+                }
+            } else {
+                // On fournit token1 (WETH), calculer token0 (USDC) nécessaire
+                amount1 = inputAmount;
+                
+                if (sqrtPrice <= sqrtPriceLower) {
+                    // Prix en dessous de la plage, seulement token0 nécessaire
+                    amount0 = inputAmount;
+                    amount1 = 0n;
+                } else if (sqrtPrice >= sqrtPriceUpper) {
+                    // Prix au-dessus de la plage, seulement token1 nécessaire
+                    amount0 = 0n;
+                } else {
+                    // Prix dans la plage, calculer le ratio USDC/WETH
+                    // À ce prix (~2500 USDC/WETH), on a besoin de beaucoup d'USDC
+                    const currentPrice = sqrtPrice * sqrtPrice; // Prix en token1/token0 (WETH/USDC)
+                    const usdcPerWeth = 1 / currentPrice; // USDC per WETH
+                    amount0 = BigInt(Math.floor(Number(inputAmount) * usdcPerWeth * 1e6)); // Ajuster pour les décimales
+                }
+            }
+            
+            return { amount0, amount1 };
+        }
+        
+        // Détecter quel token nous utilisons
+        const isToken0Stablecoin = (token0 === stablecoinAddress);
+        
+        let amount0Desired, amount1Desired;
+        let requiredStablecoin = 0n;
+        
+        if (needsStablecoin) {
+            if (isToken0Stablecoin) {
+                // USDC est token0, WETH est token1
+                console.log("Configuration: USDC (token0) + WETH (token1)");
+                
+                // Calculer combien d'USDC on a besoin pour ce montant d'ETH
+                const result = calculateAmounts(currentSqrtPriceX96, tickLower, tickUpper, ethValue, false);
+                amount0Desired = result.amount0; // USDC nécessaire
+                amount1Desired = result.amount1; // WETH (notre input)
+                requiredStablecoin = result.amount0;
+                
+            } else {
+                // WETH est token0, USDC est token1  
+                console.log("Configuration: WETH (token0) + USDC (token1)");
+                
+                const result = calculateAmounts(currentSqrtPriceX96, tickLower, tickUpper, ethValue, true);
+                amount0Desired = result.amount0; // WETH (notre input)
+                amount1Desired = result.amount1; // USDC nécessaire
+                requiredStablecoin = result.amount1;
+            }
+        } else {
+            // Pas de stablecoin
+            amount0Desired = token0 === POLYGON_TOKENS.WETH ? ethValue : 0n;
+            amount1Desired = token1 === POLYGON_TOKENS.WETH ? ethValue : 0n;
+        }
+        
+        console.log("=== MONTANTS CALCULÉS ===");
+        console.log("Amount0 désiré:", amount0Desired.toString());
+        console.log("Amount1 désiré:", amount1Desired.toString());
+        
+        if (needsStablecoin && requiredStablecoin > 0n) {
+            const requiredStablecoinFormatted = ethers.formatUnits(requiredStablecoin, stablecoinDecimals);
+            const availableStablecoinFormatted = ethers.formatUnits(stablecoinBalance, stablecoinDecimals);
+            
+            console.log(`${stablecoinSymbol} requis: ${requiredStablecoinFormatted}`);
+            console.log(`${stablecoinSymbol} disponible: ${availableStablecoinFormatted}`);
+            
+            if (stablecoinBalance < requiredStablecoin) {
+                this.hideLoadingModal();
+                alert(`❌ Solde ${stablecoinSymbol} insuffisant!\n\nVous avez: ${availableStablecoinFormatted} ${stablecoinSymbol}\nRequis: ${requiredStablecoinFormatted} ${stablecoinSymbol}\n\nPour ${ethAmount} ETH à ce prix, vous avez besoin de ${requiredStablecoinFormatted} ${stablecoinSymbol}.`);
+                return;
+            }
+            
+            // === ÉTAPE 8: VÉRIFICATION ET APPROBATION ===
+            console.log("=== VÉRIFICATION DE L'APPROBATION ===");
+            this.showLoadingModal(`Vérification des approbations ${stablecoinSymbol}...`);
+            
+            const NFT_POSITION_MANAGER = "0xC36442b4a4522E871399CD717aBDD847Ab11FE88";
+            const currentAllowance = await stablecoinContract.allowance(userAddress, NFT_POSITION_MANAGER);
+            
+            console.log(`Approbation actuelle: ${ethers.formatUnits(currentAllowance, stablecoinDecimals)} ${stablecoinSymbol}`);
+            
+            if (currentAllowance < requiredStablecoin) {
+                console.log('🔓 Approbation stablecoin requise...');
+                this.showLoadingModal(`Approbation ${stablecoinSymbol} en cours...`);
+                
+                const stablecoinWithSigner = stablecoinContract.connect(signer);
+                const approveTx = await stablecoinWithSigner.approve(
+                    NFT_POSITION_MANAGER,
+                    ethers.parseUnits("1000000", stablecoinDecimals)
+                );
+                
+                console.log('📤 Transaction d\'approbation envoyée:', approveTx.hash);
+                const approveReceipt = await approveTx.wait();
+                console.log('✅ Approbation confirmée:', approveReceipt.hash);
+            } else {
+                console.log('✅ Approbation existante suffisante');
+            }
+        }
+        
+        // === ÉTAPE 9: CRÉATION DE LA POSITION ===
         this.showLoadingModal('Création de la position Uniswap V3...');
         
         const NFT_POSITION_MANAGER_ABI = [
@@ -463,25 +546,6 @@ class YieldMaxApp {
         ];
         
         const deadline = Math.floor(Date.now() / 1000) + 1200; // 20 minutes
-        
-        // Déterminer les montants selon l'ordre des tokens
-        let amount0Desired, amount1Desired;
-        
-        if (needsStablecoin) {
-            if (token0 === stablecoinContract.target) {
-                // Stablecoin est token0
-                amount0Desired = stablecoinAmount;
-                amount1Desired = ethValue;
-            } else {
-                // Stablecoin est token1
-                amount0Desired = ethValue;
-                amount1Desired = stablecoinAmount;
-            }
-        } else {
-            // Pas de stablecoin, utiliser ETH seulement
-            amount0Desired = token0 === POLYGON_TOKENS.WETH ? ethValue : 0;
-            amount1Desired = token1 === POLYGON_TOKENS.WETH ? ethValue : 0;
-        }
         
         // Paramètres pour la position
         const NFT_POSITION_MANAGER = "0xC36442b4a4522E871399CD717aBDD847Ab11FE88";
@@ -495,8 +559,8 @@ class YieldMaxApp {
             tickUpper,
             amount0Desired,
             amount1Desired,
-            amount0Min: 0, // Pas de slippage minimum pour simplifier
-            amount1Min: 0, // Pas de slippage minimum pour simplifier
+            amount0Min: 0, // Tolérance slippage minimale pour ce test
+            amount1Min: 0, // Tolérance slippage minimale pour ce test
             recipient: userAddress,
             deadline
         };
@@ -529,7 +593,7 @@ class YieldMaxApp {
             strategy: 'Uniswap V3',
             pool: selectedPool.toUpperCase(),
             amount: needsStablecoin ? 
-                `${ethAmount} ETH + ${ethers.formatUnits(stablecoinAmount, stablecoinDecimals)} ${stablecoinSymbol}` :
+                `${ethAmount} ETH + ${ethers.formatUnits(requiredStablecoin, stablecoinDecimals)} ${stablecoinSymbol}` :
                 `${ethAmount} ETH`,
             apr: '45.0%',
             pnl: '+0.00%',
