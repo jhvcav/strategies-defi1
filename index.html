@@ -176,68 +176,93 @@
                 </div>
 
                 <!-- Aave Strategy -->
-                <div class="strategy-content" id="aave-strategy">
-                    <div class="strategy-header">
-                        <h3>Aave - Leveraged Lending</h3>
-                        <div class="strategy-stats">
-                            <span class="apr-badge">APR: 25-85%</span>
-                            <span class="risk-badge risk-low">Risque: Faible</span>
-                        </div>
-                    </div>
-                    
-                    <div class="strategy-form">
-                        <div class="form-row">
-                            <div class="input-group">
-                                <label>Asset de Collatéral</label>
-                                <select id="collateralSelect">
-                                    <option value="eth">WETH</option>
-                                    <option value="wbtc">WBTC</option>
-                                    <option value="matic">WMATIC</option>
-                                    <option value="link">LINK</option>
-                                </select>
-                            </div>
-                            <div class="input-group">
-                                <label>Montant</label>
-                                <input type="number" id="collateralAmount" placeholder="0.0" step="0.001">
-                                <span class="input-suffix">ETH</span>
-                            </div>
-                        </div>
+<div class="strategy-content" id="aave-strategy">
+    <div class="strategy-header">
+        <h3>Aave - Lending Simple</h3>
+        <div class="strategy-stats">
+            <span class="apr-badge">APR: 3-8%</span>
+            <span class="risk-badge risk-low">Risque: Très Faible</span>
+        </div>
+    </div>
+    
+    <div class="strategy-form">
+        <div class="form-row">
+            <div class="input-group">
+                <label>Asset à Déposer</label>
+                <select id="aaveAssetSelect">
+                    <option value="weth">WETH (Wrapped Ethereum)</option>
+                    <option value="usdc">USDC (USD Coin)</option>
+                    <option value="wmatic">WMATIC (Wrapped Polygon)</option>
+                    <option value="wbtc">WBTC (Wrapped Bitcoin)</option>
+                </select>
+            </div>
+            <div class="input-group">
+                <label>Montant à Déposer</label>
+                <input type="number" id="aaveAmount" placeholder="0.0" step="0.001">
+                <span class="input-suffix" id="aaveAssetSymbol">WETH</span>
+            </div>
+        </div>
 
-                        <div class="leverage-selector">
-                            <label>Niveau de Leverage</label>
-                            <div class="leverage-slider">
-                                <input type="range" id="leverageRange" min="1" max="4" step="0.1" value="2">
-                                <div class="leverage-display">
-                                    <span>Leverage: </span>
-                                    <strong id="leverageValue">2.0x</strong>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="yield-preview">
-                            <h4>Prévision de Rendement</h4>
-                            <div class="yield-metrics">
-                                <div class="metric">
-                                    <span>APR Net:</span>
-                                    <strong class="highlight">42.3%</strong>
-                                </div>
-                                <div class="metric">
-                                    <span>Health Factor:</span>
-                                    <strong class="safe">2.85</strong>
-                                </div>
-                                <div class="metric">
-                                    <span>Liquidation Prix:</span>
-                                    <strong class="warning">$1,850</strong>
-                                </div>
-                            </div>
-                        </div>
-
-                        <button class="strategy-btn primary">
-                            <i class="fas fa-university"></i>
-                            Déployer Stratégie Aave
-                        </button>
-                    </div>
+        <div class="lending-info">
+            <h4>Informations de Lending</h4>
+            <div class="info-grid">
+                <div class="info-item">
+                    <span>Type de Stratégie:</span>
+                    <strong>Lending Simple</strong>
                 </div>
+                <div class="info-item">
+                    <span>Token Reçu:</span>
+                    <strong id="aTokenName">aWETH</strong>
+                </div>
+                <div class="info-item">
+                    <span>Intérêts:</span>
+                    <strong>Automatiques</strong>
+                </div>
+                <div class="info-item">
+                    <span>Liquidité:</span>
+                    <strong>Retrait immédiat</strong>
+                </div>
+            </div>
+        </div>
+
+        <div class="yield-preview">
+            <h4>Prévision de Rendement</h4>
+            <div class="yield-metrics">
+                <div class="metric">
+                    <span>APR Actuel:</span>
+                    <strong class="highlight" id="aaveCurrentAPR">5.2%</strong>
+                </div>
+                <div class="metric">
+                    <span>Gains Journaliers:</span>
+                    <strong id="aaveDailyYield">$0.00</strong>
+                </div>
+                <div class="metric">
+                    <span>Gains Mensuels:</span>
+                    <strong class="safe" id="aaveMonthlyYield">$0.00</strong>
+                </div>
+            </div>
+        </div>
+
+        <div class="strategy-actions">
+            <button class="strategy-btn primary" id="aaveDepositBtn">
+                <i class="fas fa-plus-circle"></i>
+                Déposer sur Aave
+            </button>
+            <button class="strategy-btn secondary" id="aaveWithdrawBtn" style="display: none;">
+                <i class="fas fa-minus-circle"></i>
+                Retirer d'Aave
+            </button>
+        </div>
+    </div>
+
+    <!-- Aave Positions -->
+    <div class="aave-positions" id="aavePositions" style="display: none;">
+        <h4>Vos Positions Aave</h4>
+        <div class="positions-list" id="aavePositionsList">
+            <!-- Les positions seront ajoutées dynamiquement -->
+        </div>
+    </div>
+</div>
 
                 <!-- Flash Loan Strategy -->
                 <div class="strategy-content" id="flashloan-strategy">
