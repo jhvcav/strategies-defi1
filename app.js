@@ -238,6 +238,9 @@ class YieldMaxApp {
     this.showLoadingModal('Création de position sur Polygon...');
 
     try {
+        // CORRECTION IMPORTANTE: Utiliser 500 comme fee tier (0.05%) au lieu de 3000 (0.3%)
+        // Pour WETH/USDC sur Polygon
+        
         // Configuration des tokens selon le pool
         let token0, token1, isETHToken0, feeTier;
         console.log('Pool sélectionné:', selectedPool);
@@ -251,48 +254,27 @@ class YieldMaxApp {
                 feeTier = 500; // 0.05% pour WETH/USDC sur Polygon (selon la recherche)
                 break;
             case 'matic-usdc':
-                // Pour MATIC/USDC, vérifier l'ordre
-                if (POLYGON_TOKENS.WMATIC.toLowerCase() < POLYGON_TOKENS.USDC.toLowerCase()) {
-                    token0 = POLYGON_TOKENS.WMATIC;
-                    token1 = POLYGON_TOKENS.USDC;
-                    isETHToken0 = true; // MATIC est token0
-                } else {
-                    token0 = POLYGON_TOKENS.USDC;
-                    token1 = POLYGON_TOKENS.WMATIC;
-                    isETHToken0 = false; // MATIC est token1
-                }
+                token0 = POLYGON_TOKENS.USDC;
+                token1 = POLYGON_TOKENS.WMATIC;
+                isETHToken0 = false; // MATIC est token1
                 feeTier = 500; // 0.05% par défaut
                 break;
             case 'wbtc-eth':
-                // Pour WBTC/ETH, vérifier l'ordre
-                if (POLYGON_TOKENS.WBTC.toLowerCase() < POLYGON_TOKENS.WETH.toLowerCase()) {
-                    token0 = POLYGON_TOKENS.WBTC;
-                    token1 = POLYGON_TOKENS.WETH;
-                    isETHToken0 = false; // ETH est token1
-                } else {
-                    token0 = POLYGON_TOKENS.WETH;
-                    token1 = POLYGON_TOKENS.WBTC;
-                    isETHToken0 = true; // ETH est token0
-                }
+                token0 = POLYGON_TOKENS.WBTC;
+                token1 = POLYGON_TOKENS.WETH;
+                isETHToken0 = false; // ETH est token1
                 feeTier = 3000; // 0.3% par défaut
                 break;
             case 'matic-eth':
-                // Pour MATIC/ETH, vérifier l'ordre
-                if (POLYGON_TOKENS.WMATIC.toLowerCase() < POLYGON_TOKENS.WETH.toLowerCase()) {
-                    token0 = POLYGON_TOKENS.WMATIC;
-                    token1 = POLYGON_TOKENS.WETH;
-                    isETHToken0 = false; // ETH est token1
-                } else {
-                    token0 = POLYGON_TOKENS.WETH;
-                    token1 = POLYGON_TOKENS.WMATIC;
-                    isETHToken0 = true; // ETH est token0
-                }
+                token0 = POLYGON_TOKENS.WMATIC;
+                token1 = POLYGON_TOKENS.WETH;
+                isETHToken0 = false; // ETH est token1
                 feeTier = 3000; // 0.3% par défaut
                 break;
             default:
                 token0 = POLYGON_TOKENS.USDC;
                 token1 = POLYGON_TOKENS.WETH;
-                isETHToken0 = false; // Par défaut, ETH est token1
+                isETHToken0 = false; // ETH est token1
                 feeTier = 500; // 0.05% par défaut
         }
 
@@ -326,7 +308,7 @@ class YieldMaxApp {
         console.log('Paramètres transaction finaux:', {
             token0,
             token1,
-            fee: feeTier,
+            fee: feeTier, // IMPORTANTE: Utilisation de feeTier au lieu de 3000 fixe
             rangePercentage: parseInt(selectedRange) * 100,
             amount0Desired: amount0Desired.toString(),
             amount1Desired: amount1Desired.toString(),
@@ -406,7 +388,7 @@ class YieldMaxApp {
             
             // Si c'est toujours un problème de pool inexistant
             if (error.message.includes('execution reverted')) {
-                errorMessage = `Le pool ${selectedPool.toUpperCase()} n'existe peut-être pas sur Uniswap V3 Polygon avec ce fee tier. Essayez avec un autre fee tier (comme 0.05% au lieu de 0.3% pour WETH/USDC) ou vérifiez sur app.uniswap.org.`;
+                errorMessage = `Le pool ${selectedPool.toUpperCase()} n'existe peut-être pas sur Uniswap V3 Polygon avec ce fee tier. Essayez avec un autre fee tier ou vérifiez sur app.uniswap.org.`;
             }
         }
         
