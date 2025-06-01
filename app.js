@@ -207,258 +207,118 @@ class YieldMaxApp {
         return;
     }
 
-    // Vérifier qu'on est sur Polygon
-    try {
-        const chainId = await window.ethereum.request({ method: 'eth_chainId' });
-        if (parseInt(chainId, 16) !== POLYGON_CHAIN_ID) {
-            alert('Veuillez vous connecter au réseau Polygon');
-            return;
-        }
-    } catch (error) {
-        console.error('Erreur lors de la vérification du réseau:', error);
-        alert('Impossible de vérifier le réseau actuel');
-        return;
-    }
-
     const ethAmount = document.getElementById('ethAmount').value;
-    const selectedPool = document.getElementById('poolSelect').value;
-    
     if (!ethAmount || parseFloat(ethAmount) <= 0) {
         alert('Veuillez entrer un montant valide');
         return;
     }
 
-    this.showLoadingModal('Création de la position Uniswap V3...');
+    this.showLoadingModal('Test avec WETH...');
 
     try {
         const provider = new ethers.BrowserProvider(window.ethereum);
         const signer = await provider.getSigner();
         const userAddress = await signer.getAddress();
         
-        // === CONFIGURATION DES TOKENS ===
-        const USDC_ADDRESS = POLYGON_TOKENS.USDC;
-        const WETH_ADDRESS = POLYGON_TOKENS.WETH;
-        const poolFee = 500; // 0.05%
+        console.log("=== TEST SIMPLE AVEC WETH ===");
         
-        // Ordonner correctement les tokens (token0 < token1)
-        const token0 = USDC_ADDRESS < WETH_ADDRESS ? USDC_ADDRESS : WETH_ADDRESS;
-        const token1 = USDC_ADDRESS < WETH_ADDRESS ? WETH_ADDRESS : USDC_ADDRESS;
-        
-        console.log("=== CONFIGURATION FINALE ===");
-        console.log("Token0:", token0, token0 === USDC_ADDRESS ? "(USDC)" : "(WETH)");
-        console.log("Token1:", token1, token1 === USDC_ADDRESS ? "(USDC)" : "(WETH)");
-        
-        // === VÉRIFICATION DU POOL ===
-        const FACTORY_ADDRESS = "0x1F98431c8aD98523631AE4a59f267346ea31F984";
-        const FACTORY_ABI = ["function getPool(address tokenA, address tokenB, uint24 fee) external view returns (address pool)"];
-        
-        const factory = new ethers.Contract(FACTORY_ADDRESS, FACTORY_ABI, provider);
-        const poolAddress = await factory.getPool(token0, token1, poolFee);
-        
-        if (poolAddress === "0x0000000000000000000000000000000000000000") {
-            this.hideLoadingModal();
-            alert('❌ Pool USDC/WETH non trouvé sur Uniswap V3 Polygon');
-            return;
-        }
-        
-        console.log("✅ Pool trouvé:", poolAddress);
-        
-        // === RÉCUPÉRATION DU TICK ACTUEL ===
-        const POOL_ABI = [
-            "function slot0() external view returns (uint160 sqrtPriceX96, int24 tick, uint16 observationIndex, uint16 observationCardinality, uint16 observationCardinalityNext, uint8 feeProtocol, bool unlocked)"
+        // 1. Convertir ETH en WETH d'abord
+        const WETH_ABI = [
+            "function deposit() payable",
+            "function approve(address spender, uint256 amount) returns (bool)"
         ];
         
+        const wethContract = new ethers.Contract(POLYGON_TOKENS.WETH, WETH_ABI, signer);
+        const ethValue = ethers.parseEther(ethAmount);
+        
+        console.log('Conversion ETH -> WETH...');
+        const depositTx = await wethContract.deposit({ value: ethValue });
+        await depositTx.wait();
+        console.log('✅ WETH créé');
+        
+        // 2. Approuver WETH
+        const NFT_POSITION_MANAGER = "0xC36442b4a4522E871399CD717aBDD847Ab11FE88";
+        console.log('Approbation WETH...');
+        const approveWETHTx = await wethContract.approve(NFT_POSITION_MANAGER, ethValue);
+        await approveWETHTx.wait();
+        console.log('✅ WETH approuvé');
+        
+        // 3. Approuver USDC
+        const usdcEquivalent = parseFloat(ethAmount) * 2500;
+        const usdcRequired = ethers.parseUnits(usdcEquivalent.toString(), 6);
+        
+        const ERC20_ABI = ["function approve(address spender, uint256 amount) returns (bool)"];
+        const usdcContract = new ethers.Contract(POLYGON_TOKENS.USDC, ERC20_ABI, signer);
+        console.log('Approbation USDC...');
+        const approveUSDCTx = await usdcContract.approve(NFT_POSITION_MANAGER, usdcRequired);
+        await approveUSDCTx.wait();
+        console.log('✅ USDC approuvé');
+        
+        // 4. Récupérer infos du pool
+        const FACTORY_ADDRESS = "0x1F98431c8aD98523631AE4a59f267346ea31F984";
+        const FACTORY_ABI = ["function getPool(address tokenA, address tokenB, uint24 fee) external view returns (address pool)"];
+        const factory = new ethers.Contract(FACTORY_ADDRESS, FACTORY_ABI, provider);
+        const poolAddress = await factory.getPool(POLYGON_TOKENS.USDC, POLYGON_TOKENS.WETH, 500);
+        
+        const POOL_ABI = ["function slot0() external view returns (uint160 sqrtPriceX96, int24 tick, uint16 observationIndex, uint16 observationCardinality, uint16 observationCardinalityNext, uint8 feeProtocol, bool unlocked)"];
         const poolContract = new ethers.Contract(poolAddress, POOL_ABI, provider);
         const slot0 = await poolContract.slot0();
         const currentTick = slot0.tick;
         
-        console.log("Tick actuel du pool:", currentTick.toString());
+        // 5. Calculer ticks
+        const tickSpacing = 10;
+        const tickRange = 5000;
+        const tickLower = Math.floor((Number(currentTick) - tickRange) / tickSpacing) * tickSpacing;
+        const tickUpper = Math.ceil((Number(currentTick) + tickRange) / tickSpacing) * tickSpacing;
         
-        // === CALCUL DES TICKS DE LA PLAGE ===
-        const tickSpacing = 10; // Pour fee tier 500
-        const tickRange = 5000; // Large plage pour éviter les erreurs
+        console.log('Ticks:', tickLower, 'à', tickUpper);
         
-        // CORRECTION IMPORTANTE: Les ticks doivent être divisibles par tickSpacing
-        const rawTickLower = Number(currentTick) - tickRange;
-        const rawTickUpper = Number(currentTick) + tickRange;
-        
-        // Arrondir correctement selon le tickSpacing
-        const tickLower = Math.floor(rawTickLower / tickSpacing) * tickSpacing;
-        const tickUpper = Math.ceil(rawTickUpper / tickSpacing) * tickSpacing;
-        
-        // Vérification finale de la divisibilité
-        if (tickLower % tickSpacing !== 0 || tickUpper % tickSpacing !== 0) {
-            console.error('❌ Erreur de ticks:', { tickLower, tickUpper, tickSpacing });
-            this.hideLoadingModal();
-            alert('Erreur de calcul des ticks. Veuillez réessayer.');
-            return;
-        }
-        
-        console.log("Plage de ticks corrigée:", tickLower, "à", tickUpper);
-        console.log("Vérification divisibilité:", {
-            tickLowerOk: tickLower % tickSpacing === 0,
-            tickUpperOk: tickUpper % tickSpacing === 0
-        });
-        
-        // === VÉRIFICATION DES SOLDES ===
-        const ethBalance = await provider.getBalance(userAddress);
-        const ethValue = ethers.parseEther(ethAmount);
-        
-        if (ethBalance < ethValue) {
-            this.hideLoadingModal();
-            alert(`Solde ETH insuffisant! Vous avez ${ethers.formatEther(ethBalance)} ETH`);
-            return;
-        }
-        
-        // Vérifier USDC
-        const ERC20_ABI = [
-            "function balanceOf(address account) external view returns (uint256)",
-            "function decimals() external view returns (uint8)",
-            "function allowance(address owner, address spender) external view returns (uint256)"
-        ];
-        
-        const usdcContract = new ethers.Contract(USDC_ADDRESS, ERC20_ABI, provider);
-        const usdcBalance = await usdcContract.balanceOf(userAddress);
-        
-        // Calcul du montant USDC nécessaire
-        const usdcEquivalent = parseFloat(ethAmount) * 2500; // 1 ETH ≈ 2500 USDC
-        const usdcRequired = ethers.parseUnits(usdcEquivalent.toString(), 6);
-        
-        console.log(`USDC requis: ${usdcEquivalent} USDC`);
-        console.log(`USDC disponible: ${ethers.formatUnits(usdcBalance, 6)} USDC`);
-        
-        if (usdcBalance < usdcRequired) {
-            this.hideLoadingModal();
-            alert(`Solde USDC insuffisant! Vous avez ${ethers.formatUnits(usdcBalance, 6)} USDC, il faut environ ${usdcEquivalent} USDC`);
-            return;
-        }
-        
-        // === APPROBATION USDC ===
-        const NFT_POSITION_MANAGER = "0xC36442b4a4522E871399CD717aBDD847Ab11FE88";
-        const currentAllowance = await usdcContract.allowance(userAddress, NFT_POSITION_MANAGER);
-        
-        if (currentAllowance < usdcRequired) {
-            console.log('Approbation USDC nécessaire...');
-            const usdcWithSigner = usdcContract.connect(signer);
-            const approveTx = await usdcWithSigner.approve(NFT_POSITION_MANAGER, ethers.parseUnits("1000000", 6));
-            console.log('Approbation en cours...', approveTx.hash);
-            await approveTx.wait();
-            console.log('✅ Approbation confirmée');
-        }
-        
-        // === CALCUL DES MONTANTS ===
-        let amount0Desired, amount1Desired;
-        
-        if (token0 === USDC_ADDRESS) {
-            // USDC est token0, WETH est token1
-            amount0Desired = usdcRequired; // USDC
-            amount1Desired = ethValue;     // WETH
-            console.log("Configuration: USDC (token0) + WETH (token1)");
-        } else {
-            // WETH est token0, USDC est token1
-            amount0Desired = ethValue;     // WETH
-            amount1Desired = usdcRequired; // USDC
-            console.log("Configuration: WETH (token0) + USDC (token1)");
-        }
-        
-        console.log("Montants finaux:");
-        console.log("- Amount0:", ethers.formatUnits(amount0Desired, token0 === USDC_ADDRESS ? 6 : 18));
-        console.log("- Amount1:", ethers.formatUnits(amount1Desired, token1 === USDC_ADDRESS ? 6 : 18));
-        
-        // === CRÉATION DE LA POSITION ===
+        // 6. Créer la position SANS ETH natif
         const NFT_POSITION_MANAGER_ABI = [
-            "function mint(tuple(address token0, address token1, uint24 fee, int24 tickLower, int24 tickUpper, uint256 amount0Desired, uint256 amount1Desired, uint256 amount0Min, uint256 amount1Min, address recipient, uint256 deadline) params) external payable returns (uint256 tokenId, uint128 liquidity, uint256 amount0, uint256 amount1)",
-            "function refundETH() external payable"
+            "function mint(tuple(address token0, address token1, uint24 fee, int24 tickLower, int24 tickUpper, uint256 amount0Desired, uint256 amount1Desired, uint256 amount0Min, uint256 amount1Min, address recipient, uint256 deadline) params) external returns (uint256 tokenId, uint128 liquidity, uint256 amount0, uint256 amount1)"
         ];
         
         const positionManager = new ethers.Contract(NFT_POSITION_MANAGER, NFT_POSITION_MANAGER_ABI, signer);
-        const deadline = Math.floor(Date.now() / 1000) + 1200; // 20 minutes
+        const deadline = Math.floor(Date.now() / 1000) + 1200;
         
         const params = {
-            token0,
-            token1,
-            fee: poolFee,
+            token0: POLYGON_TOKENS.USDC,  // Token0 (adresse plus petite)
+            token1: POLYGON_TOKENS.WETH,  // Token1 (adresse plus grande)
+            fee: 500,
             tickLower,
             tickUpper,
-            amount0Desired,
-            amount1Desired,
-            amount0Min: 0, // Pas de slippage minimum pour ce test
+            amount0Desired: usdcRequired, // USDC
+            amount1Desired: ethValue,     // WETH (maintenant approuvé)
+            amount0Min: 0,
             amount1Min: 0,
             recipient: userAddress,
             deadline
         };
         
-        console.log('🚀 Paramètres de transaction:', {
-            token0,
-            token1,
-            fee: poolFee,
-            tickLower,
-            tickUpper,
-            amount0Desired: amount0Desired.toString(),
-            amount1Desired: amount1Desired.toString(),
-            ethValue: ethValue.toString()
+        console.log('Paramètres finaux:', {
+            amount0: usdcEquivalent + ' USDC',
+            amount1: ethAmount + ' WETH',
+            ticks: `${tickLower} à ${tickUpper}`
         });
         
-        // Transaction finale
+        // Transaction SANS value (pas d'ETH natif)
         const tx = await positionManager.mint(params, {
-            value: ethValue, // ETH natif qui sera converti en WETH
+            value: 0, // IMPORTANT: Pas d'ETH natif
             gasLimit: 5000000
         });
         
         console.log('📤 Transaction envoyée:', tx.hash);
         
         const receipt = await tx.wait();
-        console.log('✅ Transaction confirmée:', receipt.hash);
-        
-        // Rembourser tout ETH non utilisé
-        try {
-            const refundTx = await positionManager.refundETH();
-            await refundTx.wait();
-            console.log('💰 ETH non utilisé remboursé');
-        } catch (refundError) {
-            console.log('ℹ️ Pas d\'ETH à rembourser ou erreur de remboursement');
-        }
-        
-        // Ajouter à l'interface
-        const newPosition = {
-            id: Date.now(),
-            strategy: 'Uniswap V3',
-            pool: 'USDC/WETH',
-            amount: `${ethAmount} ETH + ${usdcEquivalent} USDC`,
-            apr: '45.0%',
-            pnl: '+0.00%',
-            status: 'active'
-        };
-        
-        this.positions.push(newPosition);
-        this.updatePositionsTable();
-        this.updateDashboardStats();
+        console.log('✅ SUCCESS!', receipt.hash);
         
         this.hideLoadingModal();
-        
-        alert(`🎉 Position créée avec succès!\n\n📄 Transaction: ${tx.hash}\n💰 Montant: ${newPosition.amount}\n🔗 Voir sur PolygonScan: https://polygonscan.com/tx/${tx.hash}`);
+        alert(`🎉 SUCCÈS!\n\nTransaction: ${tx.hash}\n\nLa position a été créée avec WETH au lieu d'ETH natif!`);
         
     } catch (error) {
         this.hideLoadingModal();
-        console.error('❌ Erreur complète:', error);
-        
-        let errorMessage = "Erreur inconnue";
-        
-        if (error.code === 4001) {
-            errorMessage = 'Transaction annulée par l\'utilisateur';
-        } else if (error.reason) {
-            errorMessage = `Erreur: ${error.reason}`;
-        } else if (error.message) {
-            errorMessage = `Erreur: ${error.message}`;
-            
-            if (error.message.includes('execution reverted')) {
-                errorMessage = 'Transaction échouée. Vérifiez vos fonds et les paramètres.';
-            } else if (error.message.includes('insufficient funds')) {
-                errorMessage = 'Fonds insuffisants pour cette transaction.';
-            }
-        }
-        
-        alert(errorMessage);
+        console.error('❌ Erreur:', error);
+        alert('Erreur: ' + error.message);
     }
 }
 
