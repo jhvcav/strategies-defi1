@@ -1534,13 +1534,6 @@ async loadAavePositions() {
             "function getUserAccountData(address user) external view returns (uint256 totalCollateralBase, uint256 totalDebtBase, uint256 availableBorrowsBase, uint256 currentLiquidationThreshold, uint256 ltv, uint256 healthFactor)"
         ];
         
-        // ABI pour lire les aTokens
-        const ATOKEN_ABI = [
-            "function balanceOf(address account) view returns (uint256)",
-            "function decimals() view returns (uint8)",
-            "function symbol() view returns (string)"
-        ];
-        
         // Vérifier que l'adresse du pool est correcte
         console.log('🔄 Adresse du Pool Aave V3:', AAVE_V3_POLYGON.POOL);
         if (!AAVE_V3_POLYGON.POOL || !AAVE_V3_POLYGON.POOL.startsWith('0x')) {
@@ -1562,26 +1555,15 @@ async loadAavePositions() {
         
         let accountData;
         try {
-            // Définir un timeout pour l'appel
-            const timeoutPromise = new Promise((_, reject) => 
-                setTimeout(() => reject(new Error('Timeout lors de l\'appel à getUserAccountData')), 15000)
-            );
-            
-            // Effectuer l'appel avec timeout
-            accountData = await Promise.race([
-                aavePool.getUserAccountData(this.currentAccount),
-                timeoutPromise
-            ]);
-            
+            // Effectuer l'appel au contrat
+            accountData = await aavePool.getUserAccountData(this.currentAccount);
             console.log('✅ Réponse reçue de getUserAccountData');
         } catch (accountDataError) {
-            console.error('❌ Erreur spécifique lors de l\'appel à getUserAccountData:', accountDataError);
+            console.error('❌ Erreur lors de l\'appel à getUserAccountData:', accountDataError);
             
             // Erreur plus détaillée pour aider au diagnostic
             if (accountDataError.message.includes('call revert exception')) {
-                throw new Error(`Erreur de contrat: L'appel à getUserAccountData a échoué. Vérifiez l'adresse du Pool Aave et les paramètres.`);
-            } else if (accountDataError.message.includes('Timeout')) {
-                throw new Error(`Délai d'attente dépassé: La blockchain Polygon est peut-être congestionnée ou le RPC ne répond pas.`);
+                throw new Error(`Erreur de contrat: L'appel à getUserAccountData a échoué. Vérifiez l'adresse du Pool Aave.`);
             } else {
                 throw accountDataError;
             }
@@ -1617,51 +1599,40 @@ async loadAavePositions() {
         // Effacer les anciennes positions Aave
         this.positions = this.positions.filter(pos => pos.strategy !== 'Aave Lending');
         
-        let totalPositions = 0;
-        
-        // Créer immédiatement une position générique basée sur les données getUserAccountData
-        // Cela garantit qu'au moins une position sera affichée même si les requêtes aToken échouent
-        console.log('🔍 Création position générique basée sur les données du pool');
-        
-        const genericPosition = {
-            id: `aave_generic_${Date.now()}`,
+        // Créer une position Aave basée sur les données getUserAccountData
+        const position = {
+            id: `aave_usdc_${Date.now()}`,
             strategy: 'Aave Lending',
-            pool: 'USDC Supply', // Supposé d'après vos commentaires précédents
-            amount: `$${parseFloat(totalCollateralUSD).toFixed(2)} USD`,
-            apr: '3.71%', // APR estimé pour USDC
-            pnl: '+0.0000%',
+            pool: 'USDC Supply',
+            amount: `${parseFloat(totalCollateralUSD).toFixed(2)} USD`,
+            apr: '3.71%', // APR typique pour USDC
+            pnl: '+0.00%',
             status: 'active',
-            aToken: 'aUSDC',
-            asset: 'USDC',
-            realBalance: parseFloat(totalCollateralUSD),
-            note: 'Position détectée via getUserAccountData',
-            txHash: '0xdab808a97078b49c8d54fff5faea1df3d983ba7611fbda9cc9b1e3b2418a9a33'
+            txHash: '0xdab808a97078b49c8d54fff5faea1df3d983ba7611fbda9cc9b1e3b2418a9a33' // Exemple de hash
         };
         
-        this.positions.push(genericPosition);
-        totalPositions++;
+        // Ajouter la position à la liste des positions
+        this.positions.push(position);
         
-        console.log('✅ Position générique créée:', genericPosition);
+        // Mettre à jour l'interface utilisateur existante
+        this.updatePositionsTable(); // Met à jour le tableau principal des positions
+        this.updateDashboardStats(); // Met à jour les statistiques du tableau de bord
+        this.updateAavePositions(); // Met à jour la section spécifique des positions Aave
         
-        // Mettre à jour l'interface immédiatement pour montrer au moins la position générique
-        this.updatePositionsTable();
-        this.updateDashboardStats();
-        this.updateAavePositions();
-        
-        this.showNotification(`✅ Position Aave récupérée (${totalCollateralUSD} USD)`, 'success');
-        console.log(`✅ Position Aave trouvée pour un total de ${totalCollateralUSD} USD`);
+        // Afficher un message de succès
+        this.showNotification(`✅ Position Aave récupérée ($${parseFloat(totalCollateralUSD).toFixed(2)} USD)`, 'success');
+        console.log(`✅ Position Aave trouvée: $${parseFloat(totalCollateralUSD).toFixed(2)} USD`);
         
     } catch (error) {
         console.error('❌ Erreur lors de la récupération des positions Aave:', error);
         console.error('Message d\'erreur:', error.message);
-        console.error('Stack trace:', error.stack);
         
-        // Message d'erreur plus convivial selon le type d'erreur
+        // Message d'erreur adapté selon le type d'erreur
         let userMessage = 'Erreur lors de la récupération des positions';
         
         if (error.message.includes('user rejected') || error.code === 4001) {
             userMessage = 'Transaction rejetée par l\'utilisateur';
-        } else if (error.message.includes('network') || error.message.includes('Polygon')) {
+        } else if (error.message.includes('network') || error.message.includes('chainId')) {
             userMessage = 'Erreur réseau. Vérifiez que vous êtes sur Polygon';
         } else if (error.message.includes('contract') || error.message.includes('Pool')) {
             userMessage = 'Erreur de contrat Aave. Essayez à nouveau plus tard';
