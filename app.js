@@ -955,17 +955,78 @@ async collectAaveRewards() {
     try {
         this.showLoadingModal('Récupération des rendements en cours...');
         
-        // Simuler une attente pour l'opération
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        const signer = await provider.getSigner();
+        
+        // Adresse de l'aToken USDC
+        const aTokenAddress = AAVE_V3_POLYGON.ASSETS.USDC.aToken;
+        
+        // ABI pour l'interaction avec le pool Aave et l'aToken
+        const AAVE_POOL_ABI = [
+            "function withdraw(address asset, uint256 amount, address to) external returns (uint256)"
+        ];
+        
+        // Calculer le montant des intérêts (ce que nous voulons retirer)
+        // Récupérer d'abord le solde actuel
+        const ATOKEN_ABI = [
+            "function balanceOf(address account) view returns (uint256)",
+            "function UNDERLYING_ASSET_ADDRESS() view returns (address)"
+        ];
+        
+        const aTokenContract = new ethers.Contract(aTokenAddress, ATOKEN_ABI, provider);
+        const currentBalance = await aTokenContract.balanceOf(this.currentAccount);
+        
+        // Votre dépôt initial en format compatible (avec 6 décimales pour USDC)
+        const initialDeposit = ethers.parseUnits("50.949", 6);
+        
+        // Calculer les intérêts (solde actuel - dépôt initial)
+        let interestAmount = currentBalance - initialDeposit;
+        
+        // S'assurer que nous avons des intérêts à retirer
+        if (interestAmount <= 0) {
+            this.hideLoadingModal();
+            this.showNotification('Aucun intérêt à récupérer pour le moment', 'warning');
+            return;
+        }
+        
+        // Obtenir l'adresse de l'actif sous-jacent (USDC)
+        const underlyingAsset = await aTokenContract.UNDERLYING_ASSET_ADDRESS();
+        
+        // Créer l'instance du contrat du pool Aave
+        const aavePool = new ethers.Contract(AAVE_V3_POLYGON.POOL, AAVE_POOL_ABI, signer);
+        
+        console.log(`Retrait des intérêts: ${ethers.formatUnits(interestAmount, 6)} USDC`);
+        
+        // Effectuer le retrait des intérêts uniquement
+        const tx = await aavePool.withdraw(
+            underlyingAsset,   // Adresse de l'actif (USDC)
+            interestAmount,    // Montant à retirer (intérêts seulement)
+            this.currentAccount  // Destinataire
+        );
+        
+        console.log('Transaction envoyée:', tx.hash);
+        
+        // Attendre la confirmation de la transaction
+        await tx.wait();
         
         this.hideLoadingModal();
-        this.showNotification('✅ Rendements récupérés avec succès!', 'success');
+        this.showNotification(`✅ ${ethers.formatUnits(interestAmount, 6)} USDC d'intérêts récupérés avec succès!`, 'success');
         
-        console.log('📢 Fonction pour récupérer les rendements Aave (à implémenter)');
+        // Rafraîchir l'affichage de la position
+        await this.loadAavePositions();
+        
     } catch (error) {
         this.hideLoadingModal();
         console.error('❌ Erreur lors de la récupération des rendements:', error);
-        this.showNotification('❌ Erreur lors de la récupération des rendements', 'error');
+        
+        let errorMessage = 'Erreur lors de la récupération des rendements';
+        if (error.code === 4001) {
+            errorMessage = 'Transaction rejetée par l\'utilisateur';
+        } else if (error.message && error.message.includes('execution reverted')) {
+            errorMessage = 'Transaction annulée par le contrat. Vérifiez votre solde et les paramètres.';
+        }
+        
+        this.showNotification(`❌ ${errorMessage}`, 'error');
     }
 }
 
@@ -983,21 +1044,75 @@ async withdrawAavePosition() {
     try {
         this.showLoadingModal('Retrait de la position Aave en cours...');
         
-        // Simuler une attente pour l'opération
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        const signer = await provider.getSigner();
+        
+        // Adresses
+        const aTokenAddress = AAVE_V3_POLYGON.ASSETS.USDC.aToken;
+        const usdcAddress = AAVE_V3_POLYGON.ASSETS.USDC.address;
+        
+        // ABI pour l'interaction
+        const AAVE_POOL_ABI = [
+            "function withdraw(address asset, uint256 amount, address to) external returns (uint256)"
+        ];
+        
+        const ATOKEN_ABI = [
+            "function balanceOf(address account) view returns (uint256)"
+        ];
+        
+        // Récupérer le solde complet de aTokens
+        const aTokenContract = new ethers.Contract(aTokenAddress, ATOKEN_ABI, provider);
+        const fullBalance = await aTokenContract.balanceOf(this.currentAccount);
+        
+        console.log(`Solde total à retirer: ${ethers.formatUnits(fullBalance, 6)} aUSDC`);
+        
+        if (fullBalance <= 0) {
+            this.hideLoadingModal();
+            this.showNotification('Aucun solde à retirer', 'warning');
+            return;
+        }
+        
+        // Créer l'instance du contrat du pool
+        const aavePool = new ethers.Contract(AAVE_V3_POLYGON.POOL, AAVE_POOL_ABI, signer);
+        
+        // Utiliser le nombre maximum pour retirer tout le solde
+        // Ou utiliser directement le solde complet
+        const withdrawAmount = ethers.MaxUint256; // Retirer tout
+        
+        // Effectuer le retrait complet
+        const tx = await aavePool.withdraw(
+            usdcAddress,       // Adresse de l'actif sous-jacent (USDC)
+            withdrawAmount,    // Montant maximum (tout retirer)
+            this.currentAccount  // Destinataire
+        );
+        
+        console.log('Transaction de retrait envoyée:', tx.hash);
+        
+        // Attendre la confirmation
+        await tx.wait();
         
         this.hideLoadingModal();
-        this.showNotification('✅ Position Aave retirée avec succès!', 'success');
+        this.showNotification(`✅ Position Aave retirée avec succès! ${ethers.formatUnits(fullBalance, 6)} USDC récupérés.`, 'success');
         
-        // Masquer la section des positions
+        // Masquer la section des positions et rafraîchir l'interface
         const positionsSection = document.getElementById('aavePositions');
         if (positionsSection) positionsSection.style.display = 'none';
         
-        console.log('📢 Fonction pour retirer la position Aave (à implémenter)');
+        // Mettre à jour les soldes
+        await this.loadTokenBalances();
+        
     } catch (error) {
         this.hideLoadingModal();
         console.error('❌ Erreur lors du retrait de la position:', error);
-        this.showNotification('❌ Erreur lors du retrait de la position', 'error');
+        
+        let errorMessage = 'Erreur lors du retrait de la position';
+        if (error.code === 4001) {
+            errorMessage = 'Transaction rejetée par l\'utilisateur';
+        } else if (error.message && error.message.includes('execution reverted')) {
+            errorMessage = 'Transaction annulée par le contrat. Vérifiez votre solde et les paramètres.';
+        }
+        
+        this.showNotification(`❌ ${errorMessage}`, 'error');
     }
 }
 
@@ -1647,7 +1762,7 @@ updateAavePositionsWithActions(currentValue, earnings, earningsPercentage) {
 
     // Fonction pour récupérer les positions Aave réelles depuis la blockchain
 async loadAavePositions() {
-    console.log('📢 Fonction loadAavePositions() appelée');
+    console.log('📢 Fonction loadAavePositions() appelée!!');
 
     if (!this.walletConnected) {
         console.log('❌ Wallet non connecté');
@@ -1672,9 +1787,20 @@ async loadAavePositions() {
         this.showNotification('🔄 Récupération des positions Aave...', 'info');
         console.log('🔍 Recherche des positions Aave pour:', this.currentAccount);
         
-        // Simplifier l'ABI pour se concentrer sur getUserAccountData
+        // ABI pour getUserAccountData
         const AAVE_POOL_ABI = [
             "function getUserAccountData(address user) external view returns (uint256 totalCollateralBase, uint256 totalDebtBase, uint256 availableBorrowsBase, uint256 currentLiquidationThreshold, uint256 ltv, uint256 healthFactor)"
+        ];
+        
+        // ABI pour récupérer le taux d'intérêt actuel
+        const AAVE_DATA_PROVIDER_ABI = [
+            "function getReserveData(address asset) external view returns (tuple(uint256 unbacked, uint256 accruedToTreasuryScaled, uint256 totalAToken, uint256 totalStableDebt, uint256 totalVariableDebt, uint256 liquidityRate, uint256 variableBorrowRate, uint256 stableBorrowRate, uint256 lastUpdateTimestamp, address aTokenAddress, address stableDebtTokenAddress, address variableDebtTokenAddress, address interestRateStrategyAddress, uint8 id))"
+        ];
+        
+        // ABI pour obtenir le solde exact d'aTokens
+        const ATOKEN_ABI = [
+            "function balanceOf(address account) view returns (uint256)",
+            "function decimals() view returns (uint8)"
         ];
         
         console.log('🔄 Adresse du Pool Aave V3:', AAVE_V3_POLYGON.POOL);
@@ -1707,11 +1833,54 @@ async loadAavePositions() {
             return;
         }
         
-        // Calculer le rendement estimé depuis le dépôt
+        // Récupérer le taux d'intérêt actuel depuis le contrat
+        let currentAPR = 3.71; // Valeur par défaut au cas où
+        
+        try {
+            // Adresse du fournisseur de données Aave V3 sur Polygon
+            const dataProviderAddress = "0x69FA688f1Dc47d4B5d8029D5a35FB7a548310654";
+            const dataProvider = new ethers.Contract(dataProviderAddress, AAVE_DATA_PROVIDER_ABI, provider);
+            
+            // Récupérer les données pour USDC
+            const reserveData = await dataProvider.getReserveData(AAVE_V3_POLYGON.ASSETS.USDC.address);
+            
+            // liquidityRate est le taux de dépôt (APR) en RAY units (1e27)
+            const aprRaw = reserveData.liquidityRate;
+            currentAPR = parseFloat(ethers.formatUnits(aprRaw, 27)) * 100;
+            
+            console.log(`📊 Taux APR actuel pour USDC: ${currentAPR.toFixed(2)}%`);
+        } catch (error) {
+            console.warn('⚠️ Impossible de récupérer le taux APR actuel:', error);
+            // Continuer avec le taux par défaut
+        }
+        
+        // Récupérer le solde exact d'aTokens
+        let actualUSDCAmount = "50.949"; // Valeur par défaut
+        let actualTokenBalance = 0;
+        
+        try {
+            const aTokenAddress = AAVE_V3_POLYGON.ASSETS.USDC.aToken;
+            const aTokenContract = new ethers.Contract(aTokenAddress, ATOKEN_ABI, provider);
+            
+            const balance = await aTokenContract.balanceOf(this.currentAccount);
+            const decimals = await aTokenContract.decimals();
+            
+            actualTokenBalance = parseFloat(ethers.formatUnits(balance, decimals));
+            actualUSDCAmount = actualTokenBalance.toFixed(6);
+            
+            console.log(`📊 Solde aUSDC exact: ${actualUSDCAmount} (${balance.toString()} raw)`);
+        } catch (error) {
+            console.warn('⚠️ Impossible de récupérer le solde exact d\'aTokens:', error);
+            // Continuer avec la valeur par défaut
+        }
+        
+        // Calculer le rendement basé sur le solde exact d'aTokens si disponible
         const initialDeposit = 50.949; // Votre dépôt initial
         const currentValue = parseFloat(totalCollateralUSD);
-        const earnings = currentValue - initialDeposit;
-        const earningsPercentage = (earnings / initialDeposit) * 100;
+        const currentTokenValue = parseFloat(actualUSDCAmount);
+        const tokenEarnings = currentTokenValue - initialDeposit;
+        const usdEarnings = currentValue - initialDeposit;
+        const earningsPercentage = (tokenEarnings / initialDeposit) * 100;
         
         // Masquer le tableau principal des positions si nécessaire
         const positionsSection = document.querySelector('.positions-section');
@@ -1719,12 +1888,29 @@ async loadAavePositions() {
             positionsSection.style.display = 'none';
         }
         
+        // Calculer les projections de gains
+        const dailyRate = currentAPR / 365;
+        const dailyEarnings = (currentTokenValue * dailyRate / 100).toFixed(6);
+        const monthlyEarnings = (currentTokenValue * currentAPR / 100 / 12).toFixed(4);
+        const yearlyEarnings = (currentTokenValue * currentAPR / 100).toFixed(2);
+        
         // Mettre à jour la section Aave avec les boutons d'action
-        this.updateAavePositionsWithActions(currentValue, earnings, earningsPercentage);
+        this.updateAavePositionsWithActions(
+            currentValue,
+            usdEarnings,
+            earningsPercentage,
+            currentAPR,
+            actualUSDCAmount,
+            {
+                daily: dailyEarnings,
+                monthly: monthlyEarnings,
+                yearly: yearlyEarnings
+            }
+        );
         
         // Afficher un message de succès
         this.showNotification(`✅ Position Aave récupérée ($${currentValue.toFixed(2)} USD)`, 'success');
-        console.log(`✅ Position Aave trouvée: $${currentValue.toFixed(2)} USD, Gains: $${earnings.toFixed(4)} (${earningsPercentage.toFixed(4)}%)`);
+        console.log(`✅ Position Aave trouvée: $${currentValue.toFixed(2)} USD, Gains: $${usdEarnings.toFixed(4)} (${earningsPercentage.toFixed(4)}%)`);
         
     } catch (error) {
         console.error('❌ Erreur lors de la récupération des positions Aave:', error);
@@ -1733,11 +1919,11 @@ async loadAavePositions() {
         // Message d'erreur adapté selon le type d'erreur
         let userMessage = 'Erreur lors de la récupération des positions';
         
-        if (error.message.includes('user rejected') || error.code === 4001) {
+        if (error.message?.includes('user rejected') || error.code === 4001) {
             userMessage = 'Transaction rejetée par l\'utilisateur';
-        } else if (error.message.includes('network') || error.message.includes('chainId')) {
+        } else if (error.message?.includes('network') || error.message?.includes('chainId')) {
             userMessage = 'Erreur réseau. Vérifiez que vous êtes sur Polygon';
-        } else if (error.message.includes('contract') || error.message.includes('Pool')) {
+        } else if (error.message?.includes('contract') || error.message?.includes('Pool')) {
             userMessage = 'Erreur de contrat Aave. Essayez à nouveau plus tard';
         }
         
