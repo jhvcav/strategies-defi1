@@ -1455,167 +1455,173 @@ select:focus {
     color: var(--text-primary);
 }
 
-/* Responsive pour la section Aave */
-@media (max-width: 768px) {
-    .position-header {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-    
-    .position-yield {
-        margin-top: var(--space-xs);
-    }
-    
-    .position-actions {
-        flex-direction: column;
-    }
+/* Styles pour le tableau d'historique des dépôts */
+.deposit-history-section {
+    margin-top: 24px;
+    background: var(--bg-glass);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-lg);
 }
 
-/* Animation pour les changements de balance */
-@keyframes balanceUpdate {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.02); }
-    100% { transform: scale(1); }
-}
-
-.aave-balance-value.updating {
-    animation: balanceUpdate 0.3s ease-out;
-}
-
-/* Indicateur de chargement pour les soldes */
-.aave-balance-loading {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-xs);
-    color: var(--text-muted);
-}
-
-.aave-balance-loading::after {
-    content: '';
-    width: 12px;
-    height: 12px;
-    border: 2px solid var(--border);
-    border-top: 2px solid var(--primary);
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-}
-
-/* Style pour la sélection d'asset avec icônes */
-.aave-asset-option {
-    padding: var(--space-sm);
+.deposit-history-section h4 {
+    margin-bottom: var(--space-md);
+    color: var(--text-primary);
+    font-size: 1.125rem;
     display: flex;
     align-items: center;
-    gap: var(--space-sm);
 }
 
-.aave-asset-icon {
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.75rem;
-    color: white;
-    font-weight: bold;
+.deposit-history-section h4::before {
+    content: '📋';
+    margin-right: var(--space-sm);
+    font-size: 1.25rem;
 }
 
-/* Override pour la section Aave - utilise les mêmes styles que Uniswap */
-#aave-strategy .form-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: var(--space-lg);
-    margin-bottom: var(--space-xl);
-}
-
-#aave-strategy .input-group {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-sm);
-    position: relative;
-}
-
-#aave-strategy .input-group label {
-    font-weight: 600;
-    color: var(--text-secondary);
+.deposit-history-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: var(--space-md);
     font-size: 0.875rem;
 }
 
-/* Select d'asset avec le même style que les autres selects */
-#aave-strategy .input-group select {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border);
-    color: var(--text-primary);
-    padding: var(--space-md);
-    border-radius: var(--radius-md);
-    outline: none;
-    transition: all 0.2s ease;
-    font-size: 1rem;
-    cursor: pointer;
+.deposit-history-table th,
+.deposit-history-table td {
+    padding: var(--space-sm);
+    text-align: left;
+    border-bottom: 1px solid var(--border);
 }
 
-#aave-strategy .input-group select:focus {
-    border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
-}
-
-#aave-strategy .input-group select:hover {
-    border-color: var(--border-hover);
-}
-
-/* Input avec bouton MAX intégré - même style que les autres inputs */
-.amount-input-container {
-    position: relative;
-    display: flex;
-    align-items: center;
-}
-
-#aave-strategy .amount-input-container input {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border);
-    color: var(--text-primary);
-    padding: var(--space-md) 120px var(--space-md) var(--space-md);
-    border-radius: var(--radius-md);
-    outline: none;
-    transition: all 0.2s ease;
-    width: 100%;
-    font-size: 1rem;
-}
-
-#aave-strategy .amount-input-container input:focus {
-    border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
-}
-
-.max-button {
-    position: absolute;
-    right: 60px;
-    background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
-    color: white;
-    border: none;
-    padding: 6px 10px;
-    border-radius: var(--radius-sm);
-    font-size: 0.75rem;
+.deposit-history-table th {
     font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s ease;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
 }
 
-.max-button:hover {
-    transform: translateY(-1px);
-    box-shadow: var(--shadow-md);
+.deposit-history-table tr:hover {
+    background: var(--bg-glass);
 }
 
-.input-suffix {
-    position: absolute;
-    right: var(--space-md);
-    color: var(--text-muted);
-    font-weight: 600;
-    pointer-events: none;
+.deposit-history-table td a {
+    color: var(--primary);
+    text-decoration: none;
+    transition: color 0.2s;
+}
+
+.deposit-history-table td a:hover {
+    color: var(--secondary);
+    text-decoration: underline;
+}
+
+/* Bouton pour ajouter un dépôt */
+.add-deposit-btn {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-md);
     font-size: 0.875rem;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: var(--space-md);
+}
+
+.add-deposit-btn:hover {
+    background: var(--bg-secondary);
+    border-color: var(--primary);
+}
+
+.add-deposit-btn i {
+    font-size: 0.75rem;
+}
+
+/* Styles pour le modal d'ajout de dépôt */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(10px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    width: 90%;
+    max-width: 500px;
+}
+
+.form-group {
+    margin-bottom: var(--space-md);
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: var(--space-xs);
+    font-weight: 500;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: var(--space-md);
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    transition: border-color 0.2s;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    border-color: var(--primary);
+    outline: none;
+}
+
+.form-group input::placeholder,
+.form-group textarea::placeholder {
+    color: var(--text-muted);
+}
+
+.button-group {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-md);
+}
+
+.button-group button {
+    flex: 1;
+}
+
+/* Styles responsifs */
+@media (max-width: 768px) {
+    .deposit-history-table {
+        display: block;
+        overflow-x: auto;
+    }
+    
+    .deposit-history-table th,
+    .deposit-history-table td {
+        white-space: nowrap;
+    }
 }
 
 /* Affichage du solde - style discret et élégant */
