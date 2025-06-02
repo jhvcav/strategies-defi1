@@ -1117,8 +1117,8 @@ async withdrawAavePosition() {
 }
 
     // Fonction pour mettre à jour l'affichage des positions Aave avec les boutons d'action
-updateAavePositionsWithActions(currentValue, earnings, earningsPercentage) {
-    // Récupérer la section des positions Aave
+updateAavePositionsWithActions(currentValue, earnings, earningsPercentage, currentAPR, actualUSDCAmount, projections) {
+    // Récupérer les éléments
     const positionsSection = document.getElementById('aavePositions');
     const positionsList = document.getElementById('aavePositionsList');
     
@@ -1127,23 +1127,21 @@ updateAavePositionsWithActions(currentValue, earnings, earningsPercentage) {
         return;
     }
     
-    // Vider la liste des positions
+    // Vider et afficher la section
     positionsList.innerHTML = '';
-    
-    // Rendre la section visible
     positionsSection.style.display = 'block';
     
-    // Créer l'élément principal de la position
+    // Créer l'élément de position
     const positionItem = document.createElement('div');
     positionItem.className = 'aave-position-item';
     
-    // 1. Créer l'en-tête de la position
-    const positionHeader = document.createElement('div');
-    positionHeader.className = 'position-header';
+    // En-tête avec les informations de base
+    const header = document.createElement('div');
+    header.className = 'position-header';
     
-    // Informations sur la position
-    const positionInfo = document.createElement('div');
-    positionInfo.className = 'position-info';
+    // Information sur la position
+    const info = document.createElement('div');
+    info.className = 'position-info';
     
     const assetSpan = document.createElement('span');
     assetSpan.className = 'asset';
@@ -1151,69 +1149,87 @@ updateAavePositionsWithActions(currentValue, earnings, earningsPercentage) {
     
     const amountSpan = document.createElement('span');
     amountSpan.className = 'amount';
-    amountSpan.textContent = '50.949 USDC';
+    amountSpan.textContent = `${actualUSDCAmount} USDC`;
     
-    positionInfo.appendChild(assetSpan);
-    positionInfo.appendChild(amountSpan);
+    info.appendChild(assetSpan);
+    info.appendChild(amountSpan);
     
     // Informations sur le rendement
-    const positionYield = document.createElement('div');
-    positionYield.className = 'position-yield';
+    const yieldInfo = document.createElement('div');
+    yieldInfo.className = 'position-yield';
     
     const aprSpan = document.createElement('span');
     aprSpan.className = 'apr';
-    aprSpan.textContent = '3.71% APR';
+    aprSpan.textContent = `${currentAPR.toFixed(2)}% APR`;
     
     const pnlSpan = document.createElement('span');
-    pnlSpan.className = 'pnl ' + (earningsPercentage > 0 ? 'text-success' : 'text-danger');
-    pnlSpan.textContent = `${earningsPercentage > 0 ? '+' : ''}${earningsPercentage.toFixed(4)}%`;
+    pnlSpan.className = `pnl ${earnings >= 0 ? 'text-success' : 'text-danger'}`;
+    pnlSpan.textContent = `${earnings >= 0 ? '+' : ''}${earnings.toFixed(4)} USD (${earnings >= 0 ? '+' : ''}${earningsPercentage.toFixed(4)}%)`;
     
-    positionYield.appendChild(aprSpan);
-    positionYield.appendChild(pnlSpan);
+    yieldInfo.appendChild(aprSpan);
+    yieldInfo.appendChild(pnlSpan);
     
-    positionHeader.appendChild(positionInfo);
-    positionHeader.appendChild(positionYield);
+    header.appendChild(info);
+    header.appendChild(yieldInfo);
     
-    // 2. Créer les détails de la position
-    const positionDetails = document.createElement('div');
-    positionDetails.className = 'position-details';
+    // Détails avec les valeurs actuelles et projections
+    const details = document.createElement('div');
+    details.className = 'position-details';
+    
+    // Fonction d'aide pour créer des éléments de détail
+    function createDetailItem(label, value, isSuccess = false) {
+        const detailItem = document.createElement('div');
+        detailItem.className = 'detail-item';
+        
+        const labelSpan = document.createElement('span');
+        labelSpan.className = 'label';
+        labelSpan.textContent = label;
+        
+        const valueSpan = document.createElement('span');
+        valueSpan.className = isSuccess ? 'value text-success' : 'value';
+        valueSpan.textContent = value;
+        
+        detailItem.appendChild(labelSpan);
+        detailItem.appendChild(valueSpan);
+        
+        return detailItem;
+    }
     
     // Valeur actuelle
-    const valueItem = document.createElement('div');
-    valueItem.className = 'detail-item';
-    
-    const valueLabel = document.createElement('span');
-    valueLabel.className = 'label';
-    valueLabel.textContent = 'Valeur actuelle:';
-    
-    const valueSpan = document.createElement('span');
-    valueSpan.className = 'value';
-    valueSpan.textContent = `$${currentValue.toFixed(2)} USD`;
-    
-    valueItem.appendChild(valueLabel);
-    valueItem.appendChild(valueSpan);
+    details.appendChild(createDetailItem(
+        'Valeur actuelle:', 
+        `$${currentValue.toFixed(2)} USD`
+    ));
     
     // Gains accumulés
-    const earningsItem = document.createElement('div');
-    earningsItem.className = 'detail-item';
+    details.appendChild(createDetailItem(
+        'Gains accumulés:', 
+        `${earnings >= 0 ? '+' : ''}$${earnings.toFixed(4)} USD`, 
+        earnings >= 0
+    ));
     
-    const earningsLabel = document.createElement('span');
-    earningsLabel.className = 'label';
-    earningsLabel.textContent = 'Gains accumulés:';
+    // Rendements projetés
+    details.appendChild(createDetailItem(
+        'Rendement journalier:', 
+        `+$${projections.daily} USD`, 
+        true
+    ));
     
-    const earningsSpan = document.createElement('span');
-    earningsSpan.className = 'value ' + (earnings > 0 ? 'text-success' : 'text-danger');
-    earningsSpan.textContent = `${earnings > 0 ? '+' : ''}$${earnings.toFixed(4)} USD`;
+    details.appendChild(createDetailItem(
+        'Rendement mensuel:', 
+        `+$${projections.monthly} USD`, 
+        true
+    ));
     
-    earningsItem.appendChild(earningsLabel);
-    earningsItem.appendChild(earningsSpan);
+    details.appendChild(createDetailItem(
+        'Rendement annuel:', 
+        `+$${projections.yearly} USD`, 
+        true
+    ));
     
-    positionDetails.appendChild(valueItem);
-    positionDetails.appendChild(earningsItem);
-    
-    // 3. Créer les boutons d'action
-    const positionActions = document.createElement('div');
-    positionActions.className = 'position-actions';
+    // Boutons d'action
+    const actions = document.createElement('div');
+    actions.className = 'position-actions';
     
     // Bouton pour récupérer les rendements
     const collectBtn = document.createElement('button');
@@ -1246,19 +1262,17 @@ updateAavePositionsWithActions(currentValue, earnings, earningsPercentage) {
     viewLink.appendChild(viewIcon);
     viewLink.appendChild(document.createTextNode(' Voir sur Aave'));
     
-    positionActions.appendChild(collectBtn);
-    positionActions.appendChild(withdrawBtn);
-    positionActions.appendChild(viewLink);
+    actions.appendChild(collectBtn);
+    actions.appendChild(withdrawBtn);
+    actions.appendChild(viewLink);
     
-    // Assembler tous les éléments
-    positionItem.appendChild(positionHeader);
-    positionItem.appendChild(positionDetails);
-    positionItem.appendChild(positionActions);
-    
-    // Ajouter à la liste des positions
+    // Assembler la position
+    positionItem.appendChild(header);
+    positionItem.appendChild(details);
+    positionItem.appendChild(actions);
     positionsList.appendChild(positionItem);
     
-    // Afficher le bouton de retrait dans la section principale
+    // Afficher le bouton de retrait
     const withdrawMainBtn = document.getElementById('aaveWithdrawBtn');
     if (withdrawMainBtn) withdrawMainBtn.style.display = 'inline-flex';
     
@@ -1762,7 +1776,7 @@ updateAavePositionsWithActions(currentValue, earnings, earningsPercentage) {
 
     // Fonction pour récupérer les positions Aave réelles depuis la blockchain
 async loadAavePositions() {
-    console.log('📢 Fonction loadAavePositions() appelée!!');
+    console.log('📢 Fonction loadAavePositions() appelée**');
 
     if (!this.walletConnected) {
         console.log('❌ Wallet non connecté');
@@ -1790,17 +1804,6 @@ async loadAavePositions() {
         // ABI pour getUserAccountData
         const AAVE_POOL_ABI = [
             "function getUserAccountData(address user) external view returns (uint256 totalCollateralBase, uint256 totalDebtBase, uint256 availableBorrowsBase, uint256 currentLiquidationThreshold, uint256 ltv, uint256 healthFactor)"
-        ];
-        
-        // ABI pour récupérer le taux d'intérêt actuel
-        const AAVE_DATA_PROVIDER_ABI = [
-            "function getReserveData(address asset) external view returns (tuple(uint256 unbacked, uint256 accruedToTreasuryScaled, uint256 totalAToken, uint256 totalStableDebt, uint256 totalVariableDebt, uint256 liquidityRate, uint256 variableBorrowRate, uint256 stableBorrowRate, uint256 lastUpdateTimestamp, address aTokenAddress, address stableDebtTokenAddress, address variableDebtTokenAddress, address interestRateStrategyAddress, uint8 id))"
-        ];
-        
-        // ABI pour obtenir le solde exact d'aTokens
-        const ATOKEN_ABI = [
-            "function balanceOf(address account) view returns (uint256)",
-            "function decimals() view returns (uint8)"
         ];
         
         console.log('🔄 Adresse du Pool Aave V3:', AAVE_V3_POLYGON.POOL);
@@ -1833,54 +1836,19 @@ async loadAavePositions() {
             return;
         }
         
-        // Récupérer le taux d'intérêt actuel depuis le contrat
-        let currentAPR = 3.71; // Valeur par défaut au cas où
+        // Utiliser une valeur d'APR fixe pour le moment
+        // On peut l'obtenir depuis l'API publique d'Aave plus tard
+        const currentAPR = 3.71;
         
-        try {
-            // Adresse du fournisseur de données Aave V3 sur Polygon
-            const dataProviderAddress = "0x69FA688f1Dc47d4B5d8029D5a35FB7a548310654";
-            const dataProvider = new ethers.Contract(dataProviderAddress, AAVE_DATA_PROVIDER_ABI, provider);
-            
-            // Récupérer les données pour USDC
-            const reserveData = await dataProvider.getReserveData(AAVE_V3_POLYGON.ASSETS.USDC.address);
-            
-            // liquidityRate est le taux de dépôt (APR) en RAY units (1e27)
-            const aprRaw = reserveData.liquidityRate;
-            currentAPR = parseFloat(ethers.formatUnits(aprRaw, 27)) * 100;
-            
-            console.log(`📊 Taux APR actuel pour USDC: ${currentAPR.toFixed(2)}%`);
-        } catch (error) {
-            console.warn('⚠️ Impossible de récupérer le taux APR actuel:', error);
-            // Continuer avec le taux par défaut
-        }
-        
-        // Récupérer le solde exact d'aTokens
-        let actualUSDCAmount = "50.949"; // Valeur par défaut
-        let actualTokenBalance = 0;
-        
-        try {
-            const aTokenAddress = AAVE_V3_POLYGON.ASSETS.USDC.aToken;
-            const aTokenContract = new ethers.Contract(aTokenAddress, ATOKEN_ABI, provider);
-            
-            const balance = await aTokenContract.balanceOf(this.currentAccount);
-            const decimals = await aTokenContract.decimals();
-            
-            actualTokenBalance = parseFloat(ethers.formatUnits(balance, decimals));
-            actualUSDCAmount = actualTokenBalance.toFixed(6);
-            
-            console.log(`📊 Solde aUSDC exact: ${actualUSDCAmount} (${balance.toString()} raw)`);
-        } catch (error) {
-            console.warn('⚠️ Impossible de récupérer le solde exact d\'aTokens:', error);
-            // Continuer avec la valeur par défaut
-        }
-        
-        // Calculer le rendement basé sur le solde exact d'aTokens si disponible
-        const initialDeposit = 50.949; // Votre dépôt initial
+        // Pour l'USDC, nous savons que le montant initial est de 50.949 USDC
+        const initialDeposit = 50.949;
         const currentValue = parseFloat(totalCollateralUSD);
-        const currentTokenValue = parseFloat(actualUSDCAmount);
-        const tokenEarnings = currentTokenValue - initialDeposit;
+        
+        // Utiliser la valeur USD pour les calculs car nous n'avons pas le solde exact d'aTokens
+        // La valeur USD correspond au montant USDC car 1 USDC = 1 USD
+        const actualUSDCAmount = currentValue.toFixed(6);
         const usdEarnings = currentValue - initialDeposit;
-        const earningsPercentage = (tokenEarnings / initialDeposit) * 100;
+        const earningsPercentage = (usdEarnings / initialDeposit) * 100;
         
         // Masquer le tableau principal des positions si nécessaire
         const positionsSection = document.querySelector('.positions-section');
@@ -1888,11 +1856,11 @@ async loadAavePositions() {
             positionsSection.style.display = 'none';
         }
         
-        // Calculer les projections de gains
+        // Calculer les projections de gains basées sur l'APR fixe
         const dailyRate = currentAPR / 365;
-        const dailyEarnings = (currentTokenValue * dailyRate / 100).toFixed(6);
-        const monthlyEarnings = (currentTokenValue * currentAPR / 100 / 12).toFixed(4);
-        const yearlyEarnings = (currentTokenValue * currentAPR / 100).toFixed(2);
+        const dailyEarnings = (currentValue * dailyRate / 100).toFixed(6);
+        const monthlyEarnings = (currentValue * currentAPR / 100 / 12).toFixed(4);
+        const yearlyEarnings = (currentValue * currentAPR / 100).toFixed(2);
         
         // Mettre à jour la section Aave avec les boutons d'action
         this.updateAavePositionsWithActions(
