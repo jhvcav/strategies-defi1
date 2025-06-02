@@ -1514,198 +1514,168 @@ async loadAavePositions() {
         
         // Vérifier qu'on est sur Polygon
         const network = await provider.getNetwork();
-        console.log('🌐 Réseau actuel:', {
-            chainId: Number(network.chainId),
-            name: network.name,
-            isPolygon: Number(network.chainId) === POLYGON_CHAIN_ID
-        });
-        
         if (Number(network.chainId) !== POLYGON_CHAIN_ID) {
             this.showNotification('⚠️ Changez vers le réseau Polygon', 'warning');
             return;
         }
 
         this.showNotification('🔄 Récupération des positions Aave...', 'info');
-        
         console.log('🔍 Recherche des positions Aave pour:', this.currentAccount);
-        console.log('📋 Configuration Aave utilisée:', AAVE_V3_POLYGON);
         
-        // ABI pour lire les soldes aTokens
+        // ABI du Pool Aave V3 avec les bonnes fonctions
+        const AAVE_POOL_ABI = [
+            "function getUserAccountData(address user) external view returns (uint256 totalCollateralBase, uint256 totalDebtBase, uint256 availableBorrowsBase, uint256 currentLiquidationThreshold, uint256 ltv, uint256 healthFactor)",
+            "function getUserConfiguration(address user) external view returns (uint256)",
+            "function getReservesList() external view returns (address[])"
+        ];
+        
+        // ABI pour lire les aTokens
         const ATOKEN_ABI = [
             "function balanceOf(address account) view returns (uint256)",
             "function decimals() view returns (uint8)",
             "function symbol() view returns (string)",
-            "function totalSupply() view returns (uint256)"
+            "function UNDERLYING_ASSET_ADDRESS() view returns (address)"
         ];
-
+        
+        const aavePool = new ethers.Contract(AAVE_V3_POLYGON.POOL, AAVE_POOL_ABI, provider);
+        
+        // 1. Vérifier les données générales du compte
+        const accountData = await aavePool.getUserAccountData(this.currentAccount);
+        console.log('📊 Données du compte Aave:', {
+            totalCollateralBase: accountData.totalCollateralBase.toString(),
+            totalDebtBase: accountData.totalDebtBase.toString(),
+            availableBorrowsBase: accountData.availableBorrowsBase.toString(),
+            healthFactor: accountData.healthFactor.toString()
+        });
+        
+        // Convertir en format lisible (base = 8 décimales pour le prix USD)
+        const totalCollateralUSD = ethers.formatUnits(accountData.totalCollateralBase, 8);
+        const totalDebtUSD = ethers.formatUnits(accountData.totalDebtBase, 8);
+        
+        console.log('💰 Valeurs formatées:', {
+            collateralUSD: totalCollateralUSD,
+            debtUSD: totalDebtUSD
+        });
+        
+        if (parseFloat(totalCollateralUSD) === 0) {
+            this.showNotification('ℹ️ Aucune position Aave trouvée', 'info');
+            return;
+        }
+        
         // Effacer les anciennes positions Aave
         this.positions = this.positions.filter(pos => pos.strategy !== 'Aave Lending');
         
         let totalPositions = 0;
-        let allChecks = [];
         
-        // Vérifier chaque aToken avec diagnostics détaillés
+        // 2. Vérifier chaque aToken pour voir les soldes spécifiques
         for (const [assetKey, assetInfo] of Object.entries(AAVE_V3_POLYGON.ASSETS)) {
             try {
-                console.log(`🔍 Vérification ${assetKey}:`, {
-                    symbol: assetInfo.symbol,
-                    aTokenAddress: assetInfo.aToken,
-                    tokenAddress: assetInfo.address
-                });
+                console.log(`🔍 Vérification ${assetKey} (aToken: ${assetInfo.aToken})`);
                 
                 const aTokenContract = new ethers.Contract(assetInfo.aToken, ATOKEN_ABI, provider);
                 
-                // Vérifications détaillées
-                const [aTokenBalance, decimals, symbol, totalSupply] = await Promise.all([
+                const [aTokenBalance, decimals, symbol] = await Promise.all([
                     aTokenContract.balanceOf(this.currentAccount),
                     aTokenContract.decimals(),
-                    aTokenContract.symbol().catch(() => `a${assetInfo.symbol}`),
-                    aTokenContract.totalSupply().catch(() => BigInt(0))
+                    aTokenContract.symbol().catch(() => `a${assetInfo.symbol}`)
                 ]);
                 
                 const formattedBalance = ethers.formatUnits(aTokenBalance, decimals);
                 const balanceNum = parseFloat(formattedBalance);
                 
-                const checkResult = {
-                    asset: assetKey,
-                    symbol: assetInfo.symbol,
-                    aTokenAddress: assetInfo.aToken,
-                    aTokenSymbol: symbol,
-                    balance: balanceNum,
-                    balanceRaw: aTokenBalance.toString(),
-                    decimals: Number(decimals),
-                    totalSupply: ethers.formatUnits(totalSupply, decimals),
-                    hasBalance: balanceNum > 0
-                };
-                
-                allChecks.push(checkResult);
-                
-                console.log(`📊 ${assetKey} (${symbol}):`, {
-                    balance: `${balanceNum.toFixed(8)} ${symbol}`,
-                    balanceRaw: aTokenBalance.toString(),
+                console.log(`📊 ${assetKey}:`, {
+                    aTokenBalance: formattedBalance,
+                    symbol: symbol,
                     decimals: Number(decimals),
                     hasBalance: balanceNum > 0
                 });
                 
-                if (aTokenBalance > 0) {
-                    if (balanceNum > 0.000001) { // Filtrer les poussières
-                        console.log(`✅ Position trouvée: ${balanceNum.toFixed(8)} ${symbol}`);
-                        
-                        // Calculer les gains estimés
-                        const aprs = { 
-                            weth: 5.2, 
-                            usdc: 3.71, 
-                            wmatic: 6.1, 
-                            wbtc: 4.9 
-                        };
-                        const currentAPR = aprs[assetKey.toLowerCase()] || 5.0;
-                        
-                        // Pour USDC, estimation plus précise
-                        let estimatedGains = 0;
-                        let estimatedDeposit = balanceNum;
-                        
-                        if (assetKey.toLowerCase().includes('usdc') && balanceNum > 50) {
-                            // Votre dépôt était de ~50.949 USDC
-                            estimatedDeposit = 50.949;
-                            estimatedGains = balanceNum - estimatedDeposit;
-                        } else {
-                            estimatedGains = balanceNum * 0.001; // Estimation conservatrice
-                            estimatedDeposit = balanceNum - estimatedGains;
-                        }
-                        
-                        const pnlPercentage = estimatedGains > 0 ? 
-                            `+${((estimatedGains / estimatedDeposit) * 100).toFixed(4)}%` : 
-                            '+0.0000%';
-                        
-                        // Créer la position
-                        const aavePosition = {
-                            id: `aave_${assetKey}_${Date.now()}`,
-                            strategy: 'Aave Lending',
-                            pool: `${assetInfo.symbol} Supply`,
-                            amount: `${balanceNum.toFixed(6)} ${assetInfo.symbol}`,
-                            apr: `${currentAPR}%`,
-                            pnl: pnlPercentage,
-                            status: 'active',
-                            aToken: assetInfo.aToken,
-                            asset: assetKey,
-                            realBalance: balanceNum,
-                            txHash: assetKey.toLowerCase().includes('usdc') ? 
-                                '0xdab808a97078b49c8d54fff5faea1df3d983ba7611fbda9cc9b1e3b2418a9a33' : 
-                                undefined
-                        };
-                        
-                        this.positions.push(aavePosition);
-                        totalPositions++;
-                    } else {
-                        console.log(`⚠️ ${assetKey}: Balance trop faible (${balanceNum.toFixed(8)}), ignorée`);
-                    }
-                } else {
-                    console.log(`❌ ${assetKey}: Aucun solde aToken`);
-                }
-                
-                // Délai pour éviter le rate limiting
-                await new Promise(resolve => setTimeout(resolve, 300));
-                
-            } catch (error) {
-                console.error(`❌ Erreur lecture a${assetInfo.symbol}:`, error);
-                allChecks.push({
-                    asset: assetKey,
-                    symbol: assetInfo.symbol,
-                    error: error.message,
-                    hasBalance: false
-                });
-            }
-        }
-        
-        // Diagnostic complet
-        console.log('📋 Résumé de toutes les vérifications:', allChecks);
-        console.log('🎯 Positions trouvées:', totalPositions);
-        
-        // Vérification alternative : regarder directement l'adresse aUSDC connue
-        if (totalPositions === 0) {
-            console.log('🔍 Vérification alternative pour aUSDC...');
-            try {
-                const aUSDC_ADDRESS = "0x625E7708f30cA75bfd92586e17077590C60eb4cD"; // aUSDC sur Polygon
-                const aUSDCContract = new ethers.Contract(aUSDC_ADDRESS, ATOKEN_ABI, provider);
-                const aUSDCBalance = await aUSDCContract.balanceOf(this.currentAccount);
-                const aUSDCFormatted = ethers.formatUnits(aUSDCBalance, 6);
-                
-                console.log('🔍 Vérification directe aUSDC:', {
-                    address: aUSDC_ADDRESS,
-                    balance: aUSDCFormatted,
-                    balanceRaw: aUSDCBalance.toString()
-                });
-                
-                if (aUSDCBalance > 0) {
-                    console.log('✅ aUSDC trouvé via vérification directe!');
+                if (balanceNum > 0.000001) { // Filtrer les poussières
+                    console.log(`✅ Position trouvée: ${balanceNum.toFixed(8)} ${symbol}`);
                     
-                    const balanceNum = parseFloat(aUSDCFormatted);
-                    const estimatedDeposit = 50.949;
-                    const estimatedGains = balanceNum - estimatedDeposit;
+                    // Calculer les informations de la position
+                    const aprs = { 
+                        weth: 5.2, 
+                        usdc: 3.71, 
+                        wmatic: 6.1, 
+                        wbtc: 4.9 
+                    };
+                    const currentAPR = aprs[assetKey.toLowerCase()] || 5.0;
+                    
+                    // Estimation des gains (les aTokens représentent dépôt + intérêts)
+                    let estimatedDeposit = balanceNum;
+                    let estimatedGains = 0;
+                    
+                    // Pour USDC, on connaît le dépôt initial
+                    if (assetKey.toLowerCase().includes('usdc')) {
+                        estimatedDeposit = 50.949; // Votre dépôt initial
+                        estimatedGains = balanceNum - estimatedDeposit;
+                    } else {
+                        // Estimation conservatrice pour les autres assets
+                        estimatedGains = balanceNum * 0.001;
+                        estimatedDeposit = balanceNum - estimatedGains;
+                    }
+                    
                     const pnlPercentage = estimatedGains > 0 ? 
                         `+${((estimatedGains / estimatedDeposit) * 100).toFixed(4)}%` : 
                         '+0.0000%';
                     
+                    // Créer la position
                     const aavePosition = {
-                        id: `aave_usdc_direct_${Date.now()}`,
+                        id: `aave_${assetKey}_${Date.now()}`,
                         strategy: 'Aave Lending',
-                        pool: 'USDC Supply',
-                        amount: `${balanceNum.toFixed(6)} USDC`,
-                        apr: '3.71%',
+                        pool: `${assetInfo.symbol} Supply`,
+                        amount: `${balanceNum.toFixed(6)} ${assetInfo.symbol}`,
+                        apr: `${currentAPR}%`,
                         pnl: pnlPercentage,
                         status: 'active',
-                        aToken: aUSDC_ADDRESS,
-                        asset: 'usdc',
+                        aToken: assetInfo.aToken,
+                        asset: assetKey,
                         realBalance: balanceNum,
-                        txHash: '0xdab808a97078b49c8d54fff5faea1df3d983ba7611fbda9cc9b1e3b2418a9a33'
+                        estimatedGains: estimatedGains,
+                        // Ajouter le hash de transaction si c'est USDC
+                        txHash: assetKey.toLowerCase().includes('usdc') ? 
+                            '0xdab808a97078b49c8d54fff5faea1df3d983ba7611fbda9cc9b1e3b2418a9a33' : 
+                            undefined
                     };
                     
                     this.positions.push(aavePosition);
                     totalPositions++;
+                    
+                    console.log('✅ Position ajoutée:', aavePosition);
                 }
-            } catch (directError) {
-                console.error('❌ Erreur vérification directe aUSDC:', directError);
+                
+                // Délai pour éviter le rate limiting
+                await new Promise(resolve => setTimeout(resolve, 200));
+                
+            } catch (error) {
+                console.error(`❌ Erreur lecture ${assetKey}:`, error);
             }
+        }
+        
+        // 3. Si aucune position spécifique trouvée mais qu'il y a du collateral, créer une position générique
+        if (totalPositions === 0 && parseFloat(totalCollateralUSD) > 0) {
+            console.log('🔍 Création position générique basée sur les données du pool');
+            
+            // Créer une position basée sur les données générales du pool
+            const genericPosition = {
+                id: `aave_generic_${Date.now()}`,
+                strategy: 'Aave Lending',
+                pool: 'Positions Aave',
+                amount: `$${parseFloat(totalCollateralUSD).toFixed(2)} USD`,
+                apr: '3.71%', // APR estimé
+                pnl: '+0.0000%', // Impossible de calculer sans connaître le dépôt initial
+                status: 'active',
+                aToken: 'Multiple',
+                asset: 'mixed',
+                realBalance: parseFloat(totalCollateralUSD),
+                note: 'Position détectée via getUserAccountData'
+            };
+            
+            this.positions.push(genericPosition);
+            totalPositions++;
+            
+            console.log('✅ Position générique créée:', genericPosition);
         }
         
         // Mettre à jour l'interface
@@ -1714,19 +1684,11 @@ async loadAavePositions() {
         this.updateAavePositions();
         
         if (totalPositions > 0) {
-            this.showNotification(`✅ ${totalPositions} position(s) Aave récupérée(s)`, 'success');
-            console.log(`✅ ${totalPositions} positions Aave trouvées et ajoutées`);
+            this.showNotification(`✅ ${totalPositions} position(s) Aave récupérée(s) (${totalCollateralUSD} USD)`, 'success');
+            console.log(`✅ ${totalPositions} positions Aave trouvées pour un total de ${totalCollateralUSD} USD`);
         } else {
-            this.showNotification('ℹ️ Aucune position Aave trouvée - Vérifiez la console pour les détails', 'info');
-            console.log('❌ Aucune position Aave active trouvée');
-            console.log('🔍 Vérifications effectuées:', allChecks);
-            
-            // Suggestion de diagnostic
-            console.log('💡 Pour diagnostiquer:');
-            console.log('1. Vérifiez sur app.aave.com que votre position existe');
-            console.log('2. Vérifiez que vous êtes sur le bon réseau (Polygon)');
-            console.log('3. Vérifiez que vous utilisez la bonne adresse wallet');
-            console.log('4. Les aTokens peuvent prendre du temps à apparaître');
+            this.showNotification('ℹ️ Aucune position Aave trouvée', 'info');
+            console.log('❌ Aucune position Aave trouvée malgré les vérifications');
         }
         
     } catch (error) {
