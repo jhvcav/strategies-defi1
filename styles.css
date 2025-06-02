@@ -1382,11 +1382,6 @@ select:focus {
     gap: var(--space-sm);
 }
 
-.aave-positions h4::before {
-    content: '📊';
-    font-size: 1.25rem;
-}
-
 .aave-positions-list {
     display: flex;
     flex-direction: column;
@@ -1405,85 +1400,74 @@ select:focus {
     transition: all 0.2s ease;
 }
 
-.aave-position-item:hover {
-    border-color: var(--success);
-    transform: translateY(-1px);
-    box-shadow: var(--shadow-md);
-}
-
-.aave-position-info {
+.position-header {
     display: flex;
-    flex-direction: column;
-    gap: var(--space-xs);
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-md);
 }
 
-.aave-position-info .asset {
-    font-weight: 700;
+.position-details {
+    background: var(--bg-glass);
+    border-radius: var(--radius-md);
+    padding: var(--space-md);
+    margin-bottom: var(--space-md);
+}
+
+.detail-item {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: var(--space-xs);
+}
+
+.position-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+}
+
+.action-btn {
+    flex: 1;
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-md);
+    border: none;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-xs);
+    text-decoration: none;
+    color: white;
+    min-width: 120px;
+}
+
+.collect-btn {
+    background: var(--success);
+}
+
+.withdraw-btn {
+    background: var(--primary);
+}
+
+.view-btn {
+    background: var(--bg-tertiary);
     color: var(--text-primary);
-    font-size: 1.125rem;
-}
-
-.aave-position-info .amount {
-    color: var(--text-secondary);
-    font-size: 0.875rem;
-}
-
-.aave-position-yield {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: var(--space-xs);
-}
-
-.aave-position-yield .apr {
-    color: var(--success);
-    font-weight: 700;
-    font-size: 1.125rem;
-}
-
-.aave-position-yield .pnl {
-    color: var(--text-secondary);
-    font-size: 0.875rem;
 }
 
 /* Responsive pour la section Aave */
 @media (max-width: 768px) {
-    .aave-strategy-actions {
+    .position-header {
         flex-direction: column;
+        align-items: flex-start;
     }
     
-    .aave-info-grid {
-        grid-template-columns: 1fr;
-    }
-    
-    .aave-position-item {
-        grid-template-columns: 1fr;
-        text-align: center;
-        gap: var(--space-md);
-    }
-    
-    .aave-position-yield {
-        align-items: center;
-    }
-    
-    .aave-input-container {
-        flex-direction: column;
-        gap: var(--space-sm);
-    }
-    
-    .aave-amount-input {
-        padding-right: var(--space-md);
-    }
-    
-    .aave-max-button {
-        position: static;
-        align-self: flex-end;
-    }
-    
-    .aave-input-suffix {
-        position: static;
-        align-self: flex-end;
+    .position-yield {
         margin-top: var(--space-xs);
+    }
+    
+    .position-actions {
+        flex-direction: column;
     }
 }
 

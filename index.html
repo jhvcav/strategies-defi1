@@ -459,18 +459,18 @@ Aave Strategy <body>
         </div>
 
         <!-- 2. BOUTON SPÉCIFIQUE AAVE dans la section positions -->
-<section class="positions-section">
-    <div class="section-header">
-        <h2 class="section-title">Positions Actives</h2>
-        <!-- NOUVEAU: Bouton Aave spécifique -->
-        <button class="refresh-aave-btn" id="refreshAaveBtn">
-            <i class="fas fa-university"></i>
-            Récupérer positions Aave
-        </button>
-    </div>
-    <div class="positions-table">
-    </div>
-</section>
+        <section class="positions-section">
+            <div class="section-header">
+                <h2 class="section-title">Positions Actives</h2>
+                <!-- NOUVEAU: Bouton Aave spécifique -->
+                <button class="refresh-aave-btn" id="refreshAaveBtn">
+                    <i class="fas fa-university"></i>
+                    Récupérer positions Aave
+                </button>
+            </div>
+            <div class="positions-table">
+            </div>
+        </section>
 
         <!-- Actions - même style que les autres -->
         <div class="strategy-actions">
@@ -485,14 +485,14 @@ Aave Strategy <body>
         </div>
     </div>
 
-    <!-- Positions Aave -->
-    <div class="aave-positions" id="aavePositions" style="display: none;">
-        <h4>Vos Positions Aave</h4>
-        <div class="positions-list" id="aavePositionsList">
-            <!-- Les positions seront ajoutées dynamiquement -->
+        <!-- Positions Aave -->
+        <div class="aave-positions" id="aavePositions" style="display: none;">
+            <h4>Vos Positions Aave</h4>
+                <div class="positions-list" id="aavePositionsList">
+                <!-- Les positions seront ajoutées dynamiquement -->
+                </div>
+            </div>
         </div>
-    </div>
-</div>
 
                 <!-- Flash Loan Strategy -->
                 <div class="strategy-content" id="flashloan-strategy">
@@ -570,30 +570,7 @@ Aave Strategy <body>
                     </div>
                 </div>
             </section>
-
-            <!-- Active Positions -->
-            <section class="positions-section">
-                <h2 class="section-title">Positions Actives</h2>
-                <div class="positions-table">
-                    <div class="table-header">
-                        <span>Stratégie</span>
-                        <span>Pool/Asset</span>
-                        <span>Montant</span>
-                        <span>APR</span>
-                        <span>PnL</span>
-                        <span>Actions</span>
-                    </div>
-                    <div class="table-body" id="positionsTableBody">
-                        <div class="empty-state">
-                            <i class="fas fa-seedling"></i>
-                            <p>Aucune position active</p>
-                            <span>Déployez votre première stratégie pour commencer</span>
-                        </div>
-                    </div>
-                </div>
-            </section>
-        </main>
-
+            
         <!-- Footer -->
         <footer class="footer">
             <div class="footer-content">

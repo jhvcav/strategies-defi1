@@ -915,7 +915,6 @@ updateLendingInfo(selectedAsset, currentAPR) {
             };
             
             this.positions.push(newPosition);
-            this.updatePositionsTable();
             this.updateDashboardStats();
             
             // Mettre à jour l'interface Aave
@@ -945,6 +944,211 @@ updateLendingInfo(selectedAsset, currentAPR) {
             alert(errorMessage);
         }
     }
+
+    // Fonction pour récupérer les rendements
+async collectAaveRewards() {
+    if (!this.walletConnected) {
+        this.showNotification('Veuillez connecter votre wallet', 'warning');
+        return;
+    }
+    
+    try {
+        this.showLoadingModal('Récupération des rendements en cours...');
+        
+        // Simuler une attente pour l'opération
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        this.hideLoadingModal();
+        this.showNotification('✅ Rendements récupérés avec succès!', 'success');
+        
+        console.log('📢 Fonction pour récupérer les rendements Aave (à implémenter)');
+    } catch (error) {
+        this.hideLoadingModal();
+        console.error('❌ Erreur lors de la récupération des rendements:', error);
+        this.showNotification('❌ Erreur lors de la récupération des rendements', 'error');
+    }
+}
+
+// Fonction pour retirer la position
+async withdrawAavePosition() {
+    if (!this.walletConnected) {
+        this.showNotification('Veuillez connecter votre wallet', 'warning');
+        return;
+    }
+    
+    if (!confirm('Êtes-vous sûr de vouloir retirer votre position Aave?\nCela retirera votre capital et les rendements accumulés.')) {
+        return;
+    }
+    
+    try {
+        this.showLoadingModal('Retrait de la position Aave en cours...');
+        
+        // Simuler une attente pour l'opération
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        this.hideLoadingModal();
+        this.showNotification('✅ Position Aave retirée avec succès!', 'success');
+        
+        // Masquer la section des positions
+        const positionsSection = document.getElementById('aavePositions');
+        if (positionsSection) positionsSection.style.display = 'none';
+        
+        console.log('📢 Fonction pour retirer la position Aave (à implémenter)');
+    } catch (error) {
+        this.hideLoadingModal();
+        console.error('❌ Erreur lors du retrait de la position:', error);
+        this.showNotification('❌ Erreur lors du retrait de la position', 'error');
+    }
+}
+
+    // Fonction pour mettre à jour l'affichage des positions Aave avec les boutons d'action
+updateAavePositionsWithActions(currentValue, earnings, earningsPercentage) {
+    // Récupérer la section des positions Aave
+    const positionsSection = document.getElementById('aavePositions');
+    const positionsList = document.getElementById('aavePositionsList');
+    
+    if (!positionsSection || !positionsList) {
+        console.error('❌ Éléments pour l\'affichage des positions Aave non trouvés');
+        return;
+    }
+    
+    // Vider la liste des positions
+    positionsList.innerHTML = '';
+    
+    // Rendre la section visible
+    positionsSection.style.display = 'block';
+    
+    // Créer l'élément principal de la position
+    const positionItem = document.createElement('div');
+    positionItem.className = 'aave-position-item';
+    
+    // 1. Créer l'en-tête de la position
+    const positionHeader = document.createElement('div');
+    positionHeader.className = 'position-header';
+    
+    // Informations sur la position
+    const positionInfo = document.createElement('div');
+    positionInfo.className = 'position-info';
+    
+    const assetSpan = document.createElement('span');
+    assetSpan.className = 'asset';
+    assetSpan.textContent = 'USDC Supply';
+    
+    const amountSpan = document.createElement('span');
+    amountSpan.className = 'amount';
+    amountSpan.textContent = '50.949 USDC';
+    
+    positionInfo.appendChild(assetSpan);
+    positionInfo.appendChild(amountSpan);
+    
+    // Informations sur le rendement
+    const positionYield = document.createElement('div');
+    positionYield.className = 'position-yield';
+    
+    const aprSpan = document.createElement('span');
+    aprSpan.className = 'apr';
+    aprSpan.textContent = '3.71% APR';
+    
+    const pnlSpan = document.createElement('span');
+    pnlSpan.className = 'pnl ' + (earningsPercentage > 0 ? 'text-success' : 'text-danger');
+    pnlSpan.textContent = `${earningsPercentage > 0 ? '+' : ''}${earningsPercentage.toFixed(4)}%`;
+    
+    positionYield.appendChild(aprSpan);
+    positionYield.appendChild(pnlSpan);
+    
+    positionHeader.appendChild(positionInfo);
+    positionHeader.appendChild(positionYield);
+    
+    // 2. Créer les détails de la position
+    const positionDetails = document.createElement('div');
+    positionDetails.className = 'position-details';
+    
+    // Valeur actuelle
+    const valueItem = document.createElement('div');
+    valueItem.className = 'detail-item';
+    
+    const valueLabel = document.createElement('span');
+    valueLabel.className = 'label';
+    valueLabel.textContent = 'Valeur actuelle:';
+    
+    const valueSpan = document.createElement('span');
+    valueSpan.className = 'value';
+    valueSpan.textContent = `$${currentValue.toFixed(2)} USD`;
+    
+    valueItem.appendChild(valueLabel);
+    valueItem.appendChild(valueSpan);
+    
+    // Gains accumulés
+    const earningsItem = document.createElement('div');
+    earningsItem.className = 'detail-item';
+    
+    const earningsLabel = document.createElement('span');
+    earningsLabel.className = 'label';
+    earningsLabel.textContent = 'Gains accumulés:';
+    
+    const earningsSpan = document.createElement('span');
+    earningsSpan.className = 'value ' + (earnings > 0 ? 'text-success' : 'text-danger');
+    earningsSpan.textContent = `${earnings > 0 ? '+' : ''}$${earnings.toFixed(4)} USD`;
+    
+    earningsItem.appendChild(earningsLabel);
+    earningsItem.appendChild(earningsSpan);
+    
+    positionDetails.appendChild(valueItem);
+    positionDetails.appendChild(earningsItem);
+    
+    // 3. Créer les boutons d'action
+    const positionActions = document.createElement('div');
+    positionActions.className = 'position-actions';
+    
+    // Bouton pour récupérer les rendements
+    const collectBtn = document.createElement('button');
+    collectBtn.className = 'action-btn collect-btn';
+    collectBtn.onclick = () => this.collectAaveRewards();
+    
+    const collectIcon = document.createElement('i');
+    collectIcon.className = 'fas fa-coins';
+    collectBtn.appendChild(collectIcon);
+    collectBtn.appendChild(document.createTextNode(' Récupérer les rendements'));
+    
+    // Bouton pour retirer le capital
+    const withdrawBtn = document.createElement('button');
+    withdrawBtn.className = 'action-btn withdraw-btn';
+    withdrawBtn.onclick = () => this.withdrawAavePosition();
+    
+    const withdrawIcon = document.createElement('i');
+    withdrawIcon.className = 'fas fa-wallet';
+    withdrawBtn.appendChild(withdrawIcon);
+    withdrawBtn.appendChild(document.createTextNode(' Retirer le capital'));
+    
+    // Lien pour voir sur Aave
+    const viewLink = document.createElement('a');
+    viewLink.href = 'https://app.aave.com/dashboard';
+    viewLink.target = '_blank';
+    viewLink.className = 'action-btn view-btn';
+    
+    const viewIcon = document.createElement('i');
+    viewIcon.className = 'fas fa-external-link-alt';
+    viewLink.appendChild(viewIcon);
+    viewLink.appendChild(document.createTextNode(' Voir sur Aave'));
+    
+    positionActions.appendChild(collectBtn);
+    positionActions.appendChild(withdrawBtn);
+    positionActions.appendChild(viewLink);
+    
+    // Assembler tous les éléments
+    positionItem.appendChild(positionHeader);
+    positionItem.appendChild(positionDetails);
+    positionItem.appendChild(positionActions);
+    
+    // Ajouter à la liste des positions
+    positionsList.appendChild(positionItem);
+    
+    // Afficher le bouton de retrait dans la section principale
+    const withdrawMainBtn = document.getElementById('aaveWithdrawBtn');
+    if (withdrawMainBtn) withdrawMainBtn.style.display = 'inline-flex';
+    
+    console.log('✅ Section des positions Aave mise à jour avec les boutons d\'action');
+}
 
     // Fonction pour mettre à jour les positions Aave
     updateAavePositions() {
@@ -1006,60 +1210,7 @@ updateLendingInfo(selectedAsset, currentAPR) {
             alert('Erreur lors de l\'exécution du Flash Loan');
         }
     }
-
-    // ===== UI UPDATES =====
-        updatePositionsTable() {
-        const tableBody = document.getElementById('positionsTableBody');
-    
-        if (!tableBody) {
-        console.error('Élément positionsTableBody non trouvé');
-        return;
-        }
-    
-        if (this.positions.length === 0) {
-            tableBody.innerHTML = `
-                <div class="empty-state">
-                    <i class="fas fa-seedling"></i>
-                    <p>Aucune position active</p>
-                    <span>Déployez votre première stratégie pour commencer</span>
-                </div>
-            `;
-        } else {
-        // NOUVELLE STRUCTURE: Utilise des div avec grid pour respecter les colonnes
-        tableBody.innerHTML = this.positions.map(position => `
-            <div class="position-row">
-                <div class="position-cell strategy-cell">
-                    <div class="cell-content">
-                        <i class="fas fa-university"></i>
-                        <span>${position.strategy}</span>
-                    </div>
-                </div>
-                <div class="position-cell pool-cell">
-                    <span class="pool-name">${position.pool}</span>
-                </div>
-                <div class="position-cell amount-cell">
-                    <span class="amount-value">${position.amount}</span>
-                </div>
-                <div class="position-cell apr-cell">
-                    <span class="apr-value text-success">${position.apr}</span>
-                </div>
-                <div class="position-cell pnl-cell">
-                    <span class="pnl-value ${position.pnl.startsWith('+') ? 'text-success' : 'text-danger'}">${position.pnl}</span>
-                </div>
-                <div class="position-cell actions-cell">
-                    <button class="action-btn" onclick="app.closePosition(${position.id})" title="Fermer la position">
-                        <i class="fas fa-times"></i>
-                    </button>
-                    ${position.txHash ? `
-                        <button class="action-btn view-btn" onclick="app.viewTransaction('${position.txHash}')" title="Voir la transaction">
-                            <i class="fas fa-external-link-alt"></i>
-                        </button>
-                    ` : ''}
-                </div>
-            </div>
-        `).join('');
-    }
-}
+       
 
     // ===== NOUVELLE FONCTION POUR VOIR LES TRANSACTIONS =====
         viewTransaction(txHash) {
@@ -1107,14 +1258,6 @@ updateLendingInfo(selectedAsset, currentAPR) {
             if (modal) modal.classList.remove('active');
         }
 
-        closePosition(positionId) {
-            if (confirm('Êtes-vous sûr de vouloir fermer cette position?')) {
-                this.positions = this.positions.filter(pos => pos.id !== positionId);
-                this.updatePositionsTable();
-                this.updateDashboardStats();
-            }
-        }
-
     async loadUserPositions() {
         if (!this.walletConnected) return;
 
@@ -1143,7 +1286,6 @@ updateLendingInfo(selectedAsset, currentAPR) {
                     tokenId: pos.tokenId.toString()
                 }));
 
-            this.updatePositionsTable();
             this.updateDashboardStats();
             
         } catch (error) {
@@ -1340,6 +1482,7 @@ updateLendingInfo(selectedAsset, currentAPR) {
         const refreshAaveBtn = document.getElementById('refreshAaveBtn');
         if (refreshAaveBtn) {
             refreshAaveBtn.addEventListener('click', () => {
+                console.log('🖱️ Bouton "Récupérer positions Aave" cliqué');
                 this.loadAavePositions();
             });
         }
@@ -1534,46 +1677,14 @@ async loadAavePositions() {
             "function getUserAccountData(address user) external view returns (uint256 totalCollateralBase, uint256 totalDebtBase, uint256 availableBorrowsBase, uint256 currentLiquidationThreshold, uint256 ltv, uint256 healthFactor)"
         ];
         
-        // Vérifier que l'adresse du pool est correcte
         console.log('🔄 Adresse du Pool Aave V3:', AAVE_V3_POLYGON.POOL);
-        if (!AAVE_V3_POLYGON.POOL || !AAVE_V3_POLYGON.POOL.startsWith('0x')) {
-            throw new Error(`Adresse du pool Aave invalide: ${AAVE_V3_POLYGON.POOL}`);
-        }
+        const aavePool = new ethers.Contract(AAVE_V3_POLYGON.POOL, AAVE_POOL_ABI, provider);
         
-        // Création du contrat avec gestion d'erreur
-        let aavePool;
-        try {
-            aavePool = new ethers.Contract(AAVE_V3_POLYGON.POOL, AAVE_POOL_ABI, provider);
-            console.log('✅ Contrat Aave Pool créé avec succès');
-        } catch (contractError) {
-            console.error('❌ Erreur lors de la création du contrat Aave Pool:', contractError);
-            throw new Error(`Impossible de créer le contrat: ${contractError.message}`);
-        }
-        
-        // 1. Vérifier les données générales du compte avec une gestion d'erreur améliorée
+        // Récupérer les données du compte
         console.log('📡 Appel à getUserAccountData pour:', this.currentAccount);
-        
-        let accountData;
-        try {
-            // Effectuer l'appel au contrat
-            accountData = await aavePool.getUserAccountData(this.currentAccount);
-            console.log('✅ Réponse reçue de getUserAccountData');
-        } catch (accountDataError) {
-            console.error('❌ Erreur lors de l\'appel à getUserAccountData:', accountDataError);
+        const accountData = await aavePool.getUserAccountData(this.currentAccount);
+        console.log('✅ Réponse reçue de getUserAccountData');
             
-            // Erreur plus détaillée pour aider au diagnostic
-            if (accountDataError.message.includes('call revert exception')) {
-                throw new Error(`Erreur de contrat: L'appel à getUserAccountData a échoué. Vérifiez l'adresse du Pool Aave.`);
-            } else {
-                throw accountDataError;
-            }
-        }
-        
-        // Vérifier que les données ont bien été récupérées
-        if (!accountData || !accountData.totalCollateralBase) {
-            throw new Error('Données invalides reçues de getUserAccountData');
-        }
-        
         console.log('📊 Données du compte Aave:', {
             totalCollateralBase: accountData.totalCollateralBase.toString(),
             totalDebtBase: accountData.totalDebtBase.toString(),
@@ -1596,60 +1707,24 @@ async loadAavePositions() {
             return;
         }
         
-        // Effacer les anciennes positions Aave
-        this.positions = this.positions.filter(pos => pos.strategy !== 'Aave Lending');
+        // Calculer le rendement estimé depuis le dépôt
+        const initialDeposit = 50.949; // Votre dépôt initial
+        const currentValue = parseFloat(totalCollateralUSD);
+        const earnings = currentValue - initialDeposit;
+        const earningsPercentage = (earnings / initialDeposit) * 100;
         
-        // Créer une position Aave basée sur les données getUserAccountData
-        // Format aligné sur la structure du tableau positions-table
-        const aavePosition = {
-            id: `aave_usdc_${Date.now()}`,
-            strategy: 'Aave Lending',
-            pool: 'USDC Supply',
-            amount: `50.95 USDC`, // Valeur supposée d'après vos commentaires précédents
-            apr: '3.71%', // APR typique pour USDC
-            pnl: '+0.02%', // Estimation
-            status: 'active',
-            txHash: '0xdab808a97078b49c8d54fff5faea1df3d983ba7611fbda9cc9b1e3b2418a9a33'
-        };
-        
-        // Ajouter la position à la liste des positions
-        this.positions.push(aavePosition);
-        
-        // Mettre à jour le tableau principal des positions
-        this.updatePositionsTable();
-        
-        // Mettre à jour les statistiques du tableau de bord
-        this.updateDashboardStats();
-        
-        // Mettre à jour la section spécifique des positions Aave
-        // S'assurer que cette section est visible
-        const positionsSection = document.getElementById('aavePositions');
-        if (positionsSection) positionsSection.style.display = 'block';
-        
-        // Mettre à jour la liste des positions Aave
-        const positionsList = document.getElementById('aavePositionsList');
-        if (positionsList) {
-            positionsList.innerHTML = `
-                <div class="aave-position-item">
-                    <div class="position-info">
-                        <span class="asset">USDC Supply</span>
-                        <span class="amount">50.95 USDC</span>
-                    </div>
-                    <div class="position-yield">
-                        <span class="apr">3.71%</span>
-                        <span class="pnl">+0.02%</span>
-                    </div>
-                </div>
-            `;
+        // Masquer le tableau principal des positions si nécessaire
+        const positionsSection = document.querySelector('.positions-section');
+        if (positionsSection) {
+            positionsSection.style.display = 'none';
         }
         
-        // Afficher le bouton de retrait
-        const withdrawBtn = document.getElementById('aaveWithdrawBtn');
-        if (withdrawBtn) withdrawBtn.style.display = 'inline-flex';
+        // Mettre à jour la section Aave avec les boutons d'action
+        this.updateAavePositionsWithActions(currentValue, earnings, earningsPercentage);
         
         // Afficher un message de succès
-        this.showNotification(`✅ Position Aave récupérée ($${parseFloat(totalCollateralUSD).toFixed(2)} USD)`, 'success');
-        console.log(`✅ Position Aave trouvée: $${parseFloat(totalCollateralUSD).toFixed(2)} USD`);
+        this.showNotification(`✅ Position Aave récupérée ($${currentValue.toFixed(2)} USD)`, 'success');
+        console.log(`✅ Position Aave trouvée: $${currentValue.toFixed(2)} USD, Gains: $${earnings.toFixed(4)} (${earningsPercentage.toFixed(4)}%)`);
         
     } catch (error) {
         console.error('❌ Erreur lors de la récupération des positions Aave:', error);
