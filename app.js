@@ -524,131 +524,6 @@ class YieldMaxApp {
         }
     }
 
-    // ===== UNISWAP V3 STRATEGY =====
-    updateUniswapMetrics() {
-        const ethAmount = parseFloat(document.getElementById('ethAmount')?.value) || 0;
-        const selectedRange = document.querySelector('.range-btn.active')?.dataset.range || 10;
-        
-        if (ethAmount > 0) {
-            // Calculs simulés pour l'exemple
-            const baseAPR = 45;
-            const rangeMultiplier = selectedRange === '5' ? 1.8 : selectedRange === '10' ? 1.4 : 1.2;
-            const estimatedAPR = (baseAPR * rangeMultiplier).toFixed(1);
-            const dailyFees = (ethAmount * 0.0012 * rangeMultiplier).toFixed(2);
-            const impermanentLoss = selectedRange === '5' ? 2.1 : selectedRange === '10' ? 1.5 : 0.8;
-
-            // Mettre à jour l'UI
-            const aprElement = document.querySelector('#uniswap-strategy .highlight');
-            const feesElement = document.querySelector('#uniswap-strategy .yield-metrics .metric:nth-child(2) strong');
-            const ilElement = document.querySelector('#uniswap-strategy .warning');
-            
-            if (aprElement) aprElement.textContent = `${estimatedAPR}%`;
-            if (feesElement) feesElement.textContent = `$${dailyFees}`;
-            if (ilElement) ilElement.textContent = `-${impermanentLoss}%`;
-        }
-    }
-
-    async deployUniswapStrategy() {
-        if (!this.walletConnected) {
-            alert('Veuillez connecter votre wallet');
-            return;
-        }
-
-        const ethAmount = document.getElementById('ethAmount').value;
-        if (!ethAmount || parseFloat(ethAmount) <= 0) {
-            alert('Veuillez entrer un montant valide');
-            return;
-        }
-
-        this.showLoadingModal('Version finale équilibrée...');
-
-        try {
-            const provider = new ethers.BrowserProvider(window.ethereum);
-            const signer = await provider.getSigner();
-            const userAddress = await signer.getAddress();
-            
-            console.log("=== VERSION FINALE ÉQUILIBRÉE ===");
-            
-            // Calculer les montants exacts pour une position équilibrée
-            const ethValue = ethers.parseEther(ethAmount);
-            const usdcNeeded = parseFloat(ethAmount) * 2511; // Prix actuel du marché
-            const usdcValue = ethers.parseUnits(usdcNeeded.toFixed(2), 6);
-            
-            // Approuver USDC
-            const usdcContract = new ethers.Contract(POLYGON_TOKENS.USDC, ERC20_ABI, signer);
-            const NFT_POSITION_MANAGER = "0xC36442b4a4522E871399CD717aBDD847Ab11FE88";
-            
-            console.log(`Approbation ${usdcNeeded.toFixed(2)} USDC...`);
-            const approveTx = await usdcContract.approve(NFT_POSITION_MANAGER, usdcValue);
-            await approveTx.wait();
-            console.log('✅ USDC approuvé');
-            
-            // Récupérer le tick du pool
-            const FACTORY_ADDRESS = "0x1F98431c8aD98523631AE4a59f267346ea31F984";
-            const FACTORY_ABI = ["function getPool(address tokenA, address tokenB, uint24 fee) external view returns (address pool)"];
-            const factory = new ethers.Contract(FACTORY_ADDRESS, FACTORY_ABI, provider);
-            const poolAddress = await factory.getPool(POLYGON_TOKENS.USDC, POLYGON_TOKENS.WETH, 500);
-            
-            const POOL_ABI = ["function slot0() external view returns (uint160 sqrtPriceX96, int24 tick, uint16 observationIndex, uint16 observationCardinality, uint16 observationCardinalityNext, uint8 feeProtocol, bool unlocked)"];
-            const poolContract = new ethers.Contract(poolAddress, POOL_ABI, provider);
-            const slot0 = await poolContract.slot0();
-            const currentTick = slot0.tick;
-            
-            // Ticks larges pour position équilibrée
-            const tickSpacing = 10;
-            const tickRange = 2000;
-            const tickLower = Math.floor((Number(currentTick) - tickRange) / tickSpacing) * tickSpacing;
-            const tickUpper = Math.ceil((Number(currentTick) + tickRange) / tickSpacing) * tickSpacing;
-            
-            console.log('Position équilibrée:', {
-                usdc: usdcNeeded.toFixed(2) + ' USDC',
-                eth: ethAmount + ' ETH',
-                ticks: `${tickLower} à ${tickUpper}`,
-                prix: '~2511 USDC/ETH'
-            });
-            
-            // Position équilibrée avec les DEUX tokens
-            const NFT_POSITION_MANAGER_ABI = [
-                "function mint(tuple(address token0, address token1, uint24 fee, int24 tickLower, int24 tickUpper, uint256 amount0Desired, uint256 amount1Desired, uint256 amount0Min, uint256 amount1Min, address recipient, uint256 deadline) params) external payable returns (uint256 tokenId, uint128 liquidity, uint256 amount0, uint256 amount1)"
-            ];
-            
-            const positionManager = new ethers.Contract(NFT_POSITION_MANAGER, NFT_POSITION_MANAGER_ABI, signer);
-            const deadline = Math.floor(Date.now() / 1000) + 1200;
-            
-            const mintParams = {
-                token0: POLYGON_TOKENS.USDC,
-                token1: POLYGON_TOKENS.WETH,
-                fee: 500,
-                tickLower,
-                tickUpper,
-                amount0Desired: usdcValue,  // USDC approuvé
-                amount1Desired: ethValue,   // WETH via ETH natif
-                amount0Min: 0,
-                amount1Min: 0,
-                recipient: userAddress,
-                deadline
-            };
-            
-            const tx = await positionManager.mint(mintParams, {
-                value: ethValue,
-                gasLimit: 5000000
-            });
-            
-            console.log('📤 Position équilibrée envoyée:', tx.hash);
-            
-            const receipt = await tx.wait();
-            console.log('🎉 SUCCÈS FINAL!', receipt.hash);
-            
-            this.hideLoadingModal();
-            alert(`🎉 SUCCÈS!\n\nPosition créée avec les deux tokens:\n${usdcNeeded.toFixed(2)} USDC + ${ethAmount} ETH\n\nTransaction: ${tx.hash}`);
-            
-        } catch (error) {
-            this.hideLoadingModal();
-            console.error('❌ Erreur finale:', error);
-            alert('Erreur finale: ' + error.message);
-        }
-    }
-
     // ===== AAVE STRATEGY =====
     updateAaveMetrics() {
     const amount = parseFloat(document.getElementById('aaveAmount')?.value) || 0;
@@ -2323,10 +2198,16 @@ async loadAavePositions() {
             const reserveData = await dataProvider.getReserveData(AAVE_V3_POLYGON.ASSETS.USDC.address);
             
             // liquidityRate est le taux de dépôt (APY) en RAY units (1e27)
-            const apyRaw = reserveData.liquidityRate;
-            currentAPY = parseFloat(ethers.formatUnits(apyRaw, 27)) * 100;
+            if (reserveData && reserveData.liquidityRate) {
+                // liquidityRate est le taux de dépôt (APY) en RAY units (1e27)
+                const apyRaw = reserveData.liquidityRate;
+                currentAPY = parseFloat(ethers.formatUnits(apyRaw, 27)) * 100;
+        
+                console.log(`📊 Taux APY actuel pour USDC: ${currentAPY.toFixed(2)}%`);
+            } else {
+                console.warn('⚠️ Données de réserve incomplètes, utilisation de l\'APY par défaut');
+            }
             
-            console.log(`📊 Taux APY actuel pour USDC: ${currentAPY.toFixed(2)}%`);
         } catch (error) {
             console.warn('⚠️ Impossible de récupérer le taux APY actuel:', error);
             // Continuer avec le taux par défaut
