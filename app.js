@@ -2022,7 +2022,7 @@ async collectAaveRewards() {
             if (positionsList) {
                 const aavePositions = this.positions.filter(pos => pos.strategy === 'Aave Lending');
                 
-                positionsList.innerHTML = aavePositions.map(pos => `
+                positionsList.innerHTML = aavePositions.map(pos => 
                     <div class="aave-position-item">
                         <div class="position-info">
                             <span class="asset">${pos.pool}</span>
@@ -2033,7 +2033,7 @@ async collectAaveRewards() {
                             <span class="pnl">${pos.pnl}</span>
                         </div>
                     </div>
-                `).join('');
+                ).join('');
             }
         } else {
             if (positionsSection) positionsSection.style.display = 'none';
