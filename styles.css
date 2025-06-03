@@ -2287,7 +2287,7 @@ select:focus {
     }
 }
 
-/* ===== AMÉLIORATION POSITIONS AAVE ===== */
+/* ===== STYLES POUR LES POSITIONS AAVE AMÉLIORÉES ===== */
 
 /* Résumé des positions */
 .positions-summary {
@@ -2332,13 +2332,13 @@ select:focus {
     color: var(--success);
 }
 
-/* Grille des positions */
+/* Positions individuelles */
 .positions-grid {
     display: grid;
     gap: var(--space-md);
 }
 
-.position-item {
+.aave-position-item {
     background: var(--bg-secondary);
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
@@ -2346,7 +2346,7 @@ select:focus {
     transition: all 0.3s ease;
 }
 
-.position-item:hover {
+.aave-position-item:hover {
     border-color: var(--primary);
     transform: translateY(-2px);
     box-shadow: var(--shadow-md);
@@ -2361,93 +2361,85 @@ select:focus {
     border-bottom: 1px solid var(--border);
 }
 
-.position-asset {
-    display: flex;
-    align-items: center;
-    gap: var(--space-md);
-}
-
-.asset-icon {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
+.position-info .asset {
+    display: block;
     font-weight: 700;
-    font-size: 0.875rem;
-}
-
-.asset-info h5 {
-    margin: 0 0 var(--space-xs) 0;
     color: var(--text-primary);
     font-size: 1.125rem;
+    margin-bottom: var(--space-xs);
 }
 
-.asset-info span {
+.position-info .amount {
     color: var(--text-secondary);
     font-size: 0.875rem;
 }
 
-.position-amount {
+.position-yield {
     text-align: right;
 }
 
-.amount-value {
-    font-size: 1.25rem;
+.position-yield .apr {
+    display: block;
+    color: var(--success);
     font-weight: 700;
-    color: var(--text-primary);
+    font-size: 1.125rem;
     margin-bottom: var(--space-xs);
 }
 
-.amount-usd {
+.position-yield .pnl {
     color: var(--text-secondary);
     font-size: 0.875rem;
 }
 
-.position-metrics {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-    gap: var(--space-md);
-    margin-bottom: var(--space-md);
+.position-yield .pnl.text-success {
+    color: var(--success);
 }
 
-.metric-box {
-    text-align: center;
+.position-yield .pnl.text-danger {
+    color: var(--danger);
+}
+
+/* Détails des positions */
+.position-details {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--space-md);
+    margin-bottom: var(--space-lg);
+}
+
+.detail-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     padding: var(--space-sm);
     background: var(--bg-glass);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-sm);
 }
 
-.metric-box .label {
-    font-size: 0.75rem;
+.detail-item .label {
     color: var(--text-secondary);
-    margin-bottom: var(--space-xs);
+    font-size: 0.875rem;
 }
 
-.metric-box .value {
-    font-size: 1rem;
+.detail-item .value {
     font-weight: 600;
     color: var(--text-primary);
 }
 
-.metric-box .value.apr {
+.detail-item .value.text-success {
     color: var(--success);
 }
 
-.metric-box .value.earnings {
-    color: var(--success);
-}
-
+/* Actions sur les positions */
 .position-actions {
     display: flex;
     gap: var(--space-sm);
+    flex-wrap: wrap;
 }
 
 .action-btn {
     flex: 1;
+    min-width: 140px;
     padding: var(--space-sm) var(--space-md);
     border: none;
     border-radius: var(--radius-md);
@@ -2459,14 +2451,20 @@ select:focus {
     align-items: center;
     justify-content: center;
     gap: var(--space-xs);
+    text-decoration: none;
 }
 
-.action-btn.primary {
-    background: var(--primary);
+.action-btn.collect-btn {
+    background: linear-gradient(135deg, var(--success) 0%, #16a34a 100%);
     color: white;
 }
 
-.action-btn.secondary {
+.action-btn.withdraw-btn {
+    background: linear-gradient(135deg, var(--warning) 0%, #d97706 100%);
+    color: white;
+}
+
+.action-btn.view-btn {
     background: var(--bg-tertiary);
     border: 1px solid var(--border);
     color: var(--text-primary);
@@ -2492,6 +2490,7 @@ select:focus {
 .history-header h4 {
     color: var(--text-primary);
     font-size: 1.125rem;
+    margin: 0;
 }
 
 .history-filters {
@@ -2542,54 +2541,76 @@ select:focus {
     background: var(--bg-glass);
 }
 
-.tx-icon {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.875rem;
+/* Historique des dépôts (tableau) */
+.deposit-history-section {
+    margin-top: var(--space-2xl);
+    background: var(--bg-glass);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-lg);
 }
 
-.tx-icon.deposit {
-    background: rgba(34, 197, 94, 0.2);
-    color: var(--success);
-}
-
-.tx-icon.withdraw {
-    background: rgba(239, 68, 68, 0.2);
-    color: var(--danger);
-}
-
-.tx-details h6 {
-    margin: 0 0 var(--space-xs) 0;
+.deposit-history-section h4 {
     color: var(--text-primary);
-    font-size: 0.875rem;
+    margin-bottom: var(--space-lg);
 }
 
-.tx-details span {
+.deposit-history-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: var(--space-lg);
+}
+
+.deposit-history-table th,
+.deposit-history-table td {
+    padding: var(--space-sm) var(--space-md);
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+}
+
+.deposit-history-table th {
+    background: var(--bg-secondary);
     color: var(--text-secondary);
-    font-size: 0.75rem;
-}
-
-.tx-amount {
     font-weight: 600;
-    color: var(--text-primary);
-    font-family: 'Courier New', monospace;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
 }
 
-.tx-link {
+.deposit-history-table td {
+    color: var(--text-primary);
+    font-size: 0.875rem;
+}
+
+.deposit-history-table td a {
     color: var(--primary);
     text-decoration: none;
-    font-size: 0.875rem;
 }
 
-.tx-link:hover {
+.deposit-history-table td a:hover {
     text-decoration: underline;
 }
 
-/* Empty states */
+.add-deposit-btn {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 0.875rem;
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+}
+
+.add-deposit-btn:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+/* États vides */
 .empty-positions,
 .empty-history {
     text-align: center;
@@ -2616,12 +2637,20 @@ select:focus {
         text-align: center;
     }
     
-    .position-metrics {
-        grid-template-columns: repeat(2, 1fr);
+    .position-yield {
+        text-align: center;
+    }
+    
+    .position-details {
+        grid-template-columns: 1fr;
     }
     
     .position-actions {
         flex-direction: column;
+    }
+    
+    .action-btn {
+        min-width: auto;
     }
     
     .history-header {
@@ -2635,10 +2664,12 @@ select:focus {
         gap: var(--space-sm);
     }
     
-    .tx-amount,
-    .tx-link {
-        grid-column: 2;
-        text-align: right;
-        margin-top: var(--space-xs);
+    .deposit-history-table {
+        font-size: 0.75rem;
+    }
+    
+    .deposit-history-table th,
+    .deposit-history-table td {
+        padding: var(--space-xs) var(--space-sm);
     }
 }

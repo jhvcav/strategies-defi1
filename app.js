@@ -1333,7 +1333,26 @@ updateAavePositionsWithActions(currentValue, earnings, earningsPercentage, curre
         return;
     }
     
-    // Vider et afficher la section
+    // NOUVEAU : Mettre à jour le résumé des positions en haut
+    const totalDepositedElement = document.getElementById('totalDeposited');
+    const totalEarningsElement = document.getElementById('totalEarnings');
+    const averageAPRElement = document.getElementById('averageAPR');
+    
+    const initialDeposit = depositHistory.reduce((sum, entry) => sum + entry.amount, 0);
+    
+    if (totalDepositedElement) {
+        totalDepositedElement.textContent = `$${initialDeposit.toFixed(2)}`;
+    }
+    
+    if (totalEarningsElement) {
+        totalEarningsElement.textContent = `${earnings >= 0 ? '+' : ''}$${earnings.toFixed(4)}`;
+    }
+    
+    if (averageAPRElement) {
+        averageAPRElement.textContent = `${currentAPY.toFixed(2)}%`;
+    }
+    
+    // Vider la grille des positions et afficher la section
     positionsList.innerHTML = '';
     positionsSection.style.display = 'block';
     
@@ -1365,12 +1384,12 @@ updateAavePositionsWithActions(currentValue, earnings, earningsPercentage, curre
     yieldInfo.className = 'position-yield';
     
     const apySpan = document.createElement('span');
-    apySpan.className = 'apr'; // Garder la classe CSS existante
-    apySpan.textContent = `${currentAPY.toFixed(2)}% APY`; // Changer APR en APY
+    apySpan.className = 'apr';
+    apySpan.textContent = `${currentAPY.toFixed(2)}% APY`;
     
     const pnlSpan = document.createElement('span');
     pnlSpan.className = `pnl ${earnings >= 0 ? 'text-success' : 'text-danger'}`;
-    pnlSpan.textContent = `${earnings >= 0 ? '+' : ''}${earnings.toFixed(4)} USD (${earnings >= 0 ? '+' : ''}${earningsPercentage.toFixed(4)}%)`;
+    pnlSpan.textContent = `${earnings >= 0 ? '+' : ''}$${earnings.toFixed(4)} (${earnings >= 0 ? '+' : ''}${earningsPercentage.toFixed(2)}%)`;
     
     yieldInfo.appendChild(apySpan);
     yieldInfo.appendChild(pnlSpan);
@@ -1402,13 +1421,11 @@ updateAavePositionsWithActions(currentValue, earnings, earningsPercentage, curre
     }
     
     // Ajouter les détails
-    const initialDeposit = depositHistory.reduce((sum, entry) => sum + entry.amount, 0);
-    
     details.appendChild(createDetailItem('Dépôt initial total:', `${initialDeposit.toFixed(6)} USDC`));
     details.appendChild(createDetailItem('Valeur actuelle:', `${actualUSDCAmount} USDC`));
     details.appendChild(createDetailItem(
         'Gains accumulés:', 
-        `${earnings >= 0 ? '+' : ''}${earnings.toFixed(4)} USDC (${earnings >= 0 ? '+' : ''}${earningsPercentage.toFixed(4)}%)`,
+        `${earnings >= 0 ? '+' : ''}${earnings.toFixed(4)} USDC (${earnings >= 0 ? '+' : ''}${earningsPercentage.toFixed(2)}%)`,
         earnings >= 0
     ));
     
@@ -1429,7 +1446,7 @@ updateAavePositionsWithActions(currentValue, earnings, earningsPercentage, curre
     const collectIcon = document.createElement('i');
     collectIcon.className = 'fas fa-coins';
     collectBtn.appendChild(collectIcon);
-    collectBtn.appendChild(document.createTextNode(' Récupérer les rendements'));
+    collectBtn.appendChild(document.createTextNode(' Récupérer rendements'));
     
     // Bouton pour retirer le capital
     const withdrawBtn = document.createElement('button');
@@ -1439,7 +1456,7 @@ updateAavePositionsWithActions(currentValue, earnings, earningsPercentage, curre
     const withdrawIcon = document.createElement('i');
     withdrawIcon.className = 'fas fa-wallet';
     withdrawBtn.appendChild(withdrawIcon);
-    withdrawBtn.appendChild(document.createTextNode(' Retirer le capital'));
+    withdrawBtn.appendChild(document.createTextNode(' Retirer capital'));
     
     // Lien pour voir sur Aave
     const viewLink = document.createElement('a');
@@ -1461,91 +1478,151 @@ updateAavePositionsWithActions(currentValue, earnings, earningsPercentage, curre
     positionItem.appendChild(details);
     positionItem.appendChild(actions);
     
-    // Tableau d'historique des dépôts
+    // NOUVEAU : Créer la section historique moderne avec filtres
     const historySection = document.createElement('div');
-    historySection.className = 'deposit-history-section';
+    historySection.className = 'history-section';
+    
+    // En-tête de l'historique avec filtres
+    const historyHeader = document.createElement('div');
+    historyHeader.className = 'history-header';
     
     const historyTitle = document.createElement('h4');
-    historyTitle.textContent = 'Historique des dépôts';
-    historySection.appendChild(historyTitle);
+    historyTitle.textContent = 'Historique des Transactions';
     
-    // Créer le tableau d'historique
-    const historyTable = document.createElement('table');
-    historyTable.className = 'deposit-history-table';
+    const historyFilters = document.createElement('div');
+    historyFilters.className = 'history-filters';
     
-    // En-tête du tableau
-    const thead = document.createElement('thead');
-    const headerRow = document.createElement('tr');
+    // Boutons de filtre
+    const filterAll = document.createElement('button');
+    filterAll.className = 'filter-btn active';
+    filterAll.dataset.filter = 'all';
+    filterAll.textContent = 'Tout';
     
-    ['Date', 'Asset', 'Montant', 'APY au dépôt', 'Transaction', 'Notes'].forEach(text => {
-        const th = document.createElement('th');
-        th.textContent = text;
-        headerRow.appendChild(th);
-    });
+    const filterDeposits = document.createElement('button');
+    filterDeposits.className = 'filter-btn';
+    filterDeposits.dataset.filter = 'deposit';
+    filterDeposits.textContent = 'Dépôts';
     
-    thead.appendChild(headerRow);
-    historyTable.appendChild(thead);
+    const filterWithdrawals = document.createElement('button');
+    filterWithdrawals.className = 'filter-btn';
+    filterWithdrawals.dataset.filter = 'withdraw';
+    filterWithdrawals.textContent = 'Retraits';
     
-    // Corps du tableau
-    const tbody = document.createElement('tbody');
+    historyFilters.appendChild(filterAll);
+    historyFilters.appendChild(filterDeposits);
+    historyFilters.appendChild(filterWithdrawals);
     
+    historyHeader.appendChild(historyTitle);
+    historyHeader.appendChild(historyFilters);
+    
+    // Liste des transactions
+    const historyList = document.createElement('div');
+    historyList.className = 'history-list';
+    historyList.id = 'aaveHistoryList';
+    
+    // Créer les éléments d'historique
     depositHistory.forEach(entry => {
-        const row = document.createElement('tr');
+        const historyItem = document.createElement('div');
+        historyItem.className = 'history-item';
+        historyItem.dataset.type = entry.amount >= 0 ? 'deposit' : 'withdraw';
         
-        // Date formatée
-        const dateCell = document.createElement('td');
+        // Icône de transaction
+        const txIcon = document.createElement('div');
+        txIcon.className = `tx-icon ${entry.amount >= 0 ? 'deposit' : 'withdraw'}`;
+        
+        const icon = document.createElement('i');
+        icon.className = entry.amount >= 0 ? 'fas fa-arrow-down' : 'fas fa-arrow-up';
+        txIcon.appendChild(icon);
+        
+        // Détails de la transaction
+        const txDetails = document.createElement('div');
+        txDetails.className = 'tx-details';
+        
+        const txType = document.createElement('h6');
+        txType.textContent = entry.amount >= 0 ? `Dépôt ${entry.asset}` : `Retrait ${entry.asset}`;
+        
+        const txDate = document.createElement('span');
         const date = new Date(entry.date);
-        dateCell.textContent = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-        row.appendChild(dateCell);
+        txDate.textContent = date.toLocaleDateString('fr-FR') + ' à ' + date.toLocaleTimeString('fr-FR', {hour: '2-digit', minute:'2-digit'});
         
-        // Asset
-        const assetCell = document.createElement('td');
-        assetCell.textContent = entry.asset;
-        row.appendChild(assetCell);
+        txDetails.appendChild(txType);
+        txDetails.appendChild(txDate);
         
-        // Montant
-        const amountCell = document.createElement('td');
-        amountCell.textContent = entry.amount.toFixed(6);
-        row.appendChild(amountCell);
+        // Montant de la transaction
+        const txAmount = document.createElement('div');
+        txAmount.className = 'tx-amount';
+        txAmount.textContent = `${entry.amount >= 0 ? '+' : ''}${entry.amount.toFixed(6)} ${entry.asset}`;
         
-        // APY au moment du dépôt
-        const apyCell = document.createElement('td');
-        apyCell.textContent = entry.apy ? entry.apy.toFixed(2) + '%' : 'N/A';
-        row.appendChild(apyCell);
-        
-        // Hash de transaction
-        const txCell = document.createElement('td');
+        // Lien vers la transaction
+        const txLink = document.createElement('div');
         if (entry.txHash) {
-            const txLink = document.createElement('a');
-            txLink.href = `https://polygonscan.com/tx/${entry.txHash}`;
-            txLink.target = '_blank';
-            txLink.textContent = entry.txHash.substring(0, 8) + '...';
-            txCell.appendChild(txLink);
-        } else {
-            txCell.textContent = 'N/A';
+            const link = document.createElement('a');
+            link.href = `https://polygonscan.com/tx/${entry.txHash}`;
+            link.target = '_blank';
+            link.className = 'tx-link';
+            link.innerHTML = '<i class="fas fa-external-link-alt"></i>';
+            txLink.appendChild(link);
         }
-        row.appendChild(txCell);
         
-        // Notes
-        const notesCell = document.createElement('td');
-        notesCell.textContent = entry.notes || '';
-        row.appendChild(notesCell);
+        historyItem.appendChild(txIcon);
+        historyItem.appendChild(txDetails);
+        historyItem.appendChild(txAmount);
+        historyItem.appendChild(txLink);
         
-        tbody.appendChild(row);
+        historyList.appendChild(historyItem);
     });
     
-    historyTable.appendChild(tbody);
-    historySection.appendChild(historyTable);
+    // Si pas d'historique, afficher un message
+    if (depositHistory.length === 0) {
+        const emptyHistory = document.createElement('div');
+        emptyHistory.className = 'empty-history';
+        emptyHistory.innerHTML = `
+            <i class="fas fa-history"></i>
+            <p>Aucune transaction</p>
+            <span>Vos dépôts et retraits apparaîtront ici</span>
+        `;
+        historyList.appendChild(emptyHistory);
+    }
     
-    // Bouton pour ajouter un dépôt manuellement (pour les dépôts passés)
+    historySection.appendChild(historyHeader);
+    historySection.appendChild(historyList);
+    
+    // NOUVEAU : Bouton pour ajouter un dépôt manuellement
     const addDepositBtn = document.createElement('button');
-    addDepositBtn.className = 'action-btn add-deposit-btn';
+    addDepositBtn.className = 'add-deposit-btn';
     addDepositBtn.innerHTML = '<i class="fas fa-plus"></i> Ajouter un dépôt manuellement';
     addDepositBtn.onclick = () => this.showAddDepositModal();
     
     historySection.appendChild(addDepositBtn);
     
-    // Ajouter tout à la liste des positions
+    // Ajouter les gestionnaires d'événements pour les filtres
+    const filterBtns = historySection.querySelectorAll('.filter-btn');
+    filterBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            // Retirer la classe active de tous les boutons
+            filterBtns.forEach(b => b.classList.remove('active'));
+            // Ajouter la classe active au bouton cliqué
+            this.classList.add('active');
+            
+            const filter = this.dataset.filter;
+            const historyItems = historyList.querySelectorAll('.history-item');
+            
+            historyItems.forEach(item => {
+                if (filter === 'all') {
+                    item.style.display = 'grid';
+                } else {
+                    const itemType = item.dataset.type;
+                    if (itemType === filter) {
+                        item.style.display = 'grid';
+                    } else {
+                        item.style.display = 'none';
+                    }
+                }
+            });
+        });
+    });
+    
+    // Ajouter tout à la grille des positions
     positionsList.appendChild(positionItem);
     positionsList.appendChild(historySection);
     
@@ -1553,7 +1630,7 @@ updateAavePositionsWithActions(currentValue, earnings, earningsPercentage, curre
     const withdrawMainBtn = document.getElementById('aaveWithdrawBtn');
     if (withdrawMainBtn) withdrawMainBtn.style.display = 'inline-flex';
     
-    console.log('✅ Section des positions Aave mise à jour avec les boutons d\'action');
+    console.log('✅ Section des positions Aave mise à jour avec résumé, positions et historique organisés');
 }
 
 // Fonction pour ajouter un dépôt manuellement
