@@ -1356,9 +1356,15 @@ updateAavePositionsWithActions(currentValue, earnings, earningsPercentage, curre
     positionsList.innerHTML = '';
     positionsSection.style.display = 'block';
     
-    // Créer l'élément de position principal
+    // Créer l'élément de position principal (CARTE OPTIMISÉE)
     const positionItem = document.createElement('div');
     positionItem.className = 'aave-position-item';
+    
+    // NOUVEAU : Ajouter un badge de statut en premier
+    const statusBadge = document.createElement('div');
+    statusBadge.className = 'position-status';
+    statusBadge.textContent = 'Actif';
+    positionItem.appendChild(statusBadge);
     
     // En-tête avec les informations de base
     const header = document.createElement('div');
@@ -1370,7 +1376,7 @@ updateAavePositionsWithActions(currentValue, earnings, earningsPercentage, curre
     
     const assetSpan = document.createElement('span');
     assetSpan.className = 'asset';
-    assetSpan.textContent = 'USDC Supply';
+    assetSpan.textContent = 'USDC Supply'; // L'emoji sera ajouté via CSS
     
     const amountSpan = document.createElement('span');
     amountSpan.className = 'amount';
@@ -1397,7 +1403,7 @@ updateAavePositionsWithActions(currentValue, earnings, earningsPercentage, curre
     header.appendChild(info);
     header.appendChild(yieldInfo);
     
-    // Détails avec les valeurs actuelles et projections
+    // Détails avec les valeurs actuelles et projections (OPTIMISÉ EN 2x3)
     const details = document.createElement('div');
     details.className = 'position-details';
     
@@ -1420,21 +1426,15 @@ updateAavePositionsWithActions(currentValue, earnings, earningsPercentage, curre
         return detailItem;
     }
     
-    // Ajouter les détails
-    details.appendChild(createDetailItem('Dépôt initial total:', `${initialDeposit.toFixed(6)} USDC`));
-    details.appendChild(createDetailItem('Valeur actuelle:', `${actualUSDCAmount} USDC`));
-    details.appendChild(createDetailItem(
-        'Gains accumulés:', 
-        `${earnings >= 0 ? '+' : ''}${earnings.toFixed(4)} USDC (${earnings >= 0 ? '+' : ''}${earningsPercentage.toFixed(2)}%)`,
-        earnings >= 0
-    ));
+    // OPTIMISÉ : Seulement les 6 métriques les plus importantes en format 2x3
+    details.appendChild(createDetailItem('Dépôt initial', `${initialDeposit.toFixed(2)} USDC`));
+    details.appendChild(createDetailItem('Valeur actuelle', `${actualUSDCAmount} USDC`));
+    details.appendChild(createDetailItem('Gains', `${earnings >= 0 ? '+' : ''}${earnings.toFixed(4)} USDC`, earnings >= 0));
+    details.appendChild(createDetailItem('Rendement/jour', `+${projections.daily} USDC`, true));
+    details.appendChild(createDetailItem('Rendement/mois', `+${projections.monthly} USDC`, true));
+    details.appendChild(createDetailItem('Performance', `${earnings >= 0 ? '+' : ''}${earningsPercentage.toFixed(2)}%`, earnings >= 0));
     
-    // Projections basées sur l'APY actuel
-    details.appendChild(createDetailItem('Rendement journalier:', `+${projections.daily} USDC`, true));
-    details.appendChild(createDetailItem('Rendement mensuel:', `+${projections.monthly} USDC`, true));
-    details.appendChild(createDetailItem('Rendement annuel:', `+${projections.yearly} USDC`, true));
-    
-    // Boutons d'action
+    // Boutons d'action (COMPACTS EN LIGNE)
     const actions = document.createElement('div');
     actions.className = 'position-actions';
     
@@ -1446,7 +1446,7 @@ updateAavePositionsWithActions(currentValue, earnings, earningsPercentage, curre
     const collectIcon = document.createElement('i');
     collectIcon.className = 'fas fa-coins';
     collectBtn.appendChild(collectIcon);
-    collectBtn.appendChild(document.createTextNode(' Récupérer rendements'));
+    collectBtn.appendChild(document.createTextNode(' Gains'));
     
     // Bouton pour retirer le capital
     const withdrawBtn = document.createElement('button');
@@ -1456,7 +1456,7 @@ updateAavePositionsWithActions(currentValue, earnings, earningsPercentage, curre
     const withdrawIcon = document.createElement('i');
     withdrawIcon.className = 'fas fa-wallet';
     withdrawBtn.appendChild(withdrawIcon);
-    withdrawBtn.appendChild(document.createTextNode(' Retirer capital'));
+    withdrawBtn.appendChild(document.createTextNode(' Capital'));
     
     // Lien pour voir sur Aave
     const viewLink = document.createElement('a');
@@ -1467,13 +1467,13 @@ updateAavePositionsWithActions(currentValue, earnings, earningsPercentage, curre
     const viewIcon = document.createElement('i');
     viewIcon.className = 'fas fa-external-link-alt';
     viewLink.appendChild(viewIcon);
-    viewLink.appendChild(document.createTextNode(' Voir sur Aave'));
+    viewLink.appendChild(document.createTextNode(' Aave'));
     
     actions.appendChild(collectBtn);
     actions.appendChild(withdrawBtn);
     actions.appendChild(viewLink);
     
-    // Assembler la section principale
+    // Assembler la carte de position
     positionItem.appendChild(header);
     positionItem.appendChild(details);
     positionItem.appendChild(actions);
@@ -1630,7 +1630,7 @@ updateAavePositionsWithActions(currentValue, earnings, earningsPercentage, curre
     const withdrawMainBtn = document.getElementById('aaveWithdrawBtn');
     if (withdrawMainBtn) withdrawMainBtn.style.display = 'inline-flex';
     
-    console.log('✅ Section des positions Aave mise à jour avec résumé, positions et historique organisés');
+    console.log('✅ Carte de position Aave optimisée créée avec résumé, position compacte et historique');
 }
 
 // Fonction pour ajouter un dépôt manuellement
