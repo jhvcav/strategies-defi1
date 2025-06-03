@@ -1082,3 +1082,172 @@ select:focus {
 .text-danger {
     color: var(--danger);
 }
+
+/* Styles pour le tableau d'historique des dépôts */
+.deposit-history-section {
+    margin-top: 24px;
+    background: var(--bg-glass);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-lg);
+}
+
+.deposit-history-section h4 {
+    margin-bottom: var(--space-md);
+    color: var(--text-primary);
+    font-size: 1.125rem;
+    display: flex;
+    align-items: center;
+}
+
+.deposit-history-section h4::before {
+    content: '📋';
+    margin-right: var(--space-sm);
+    font-size: 1.25rem;
+}
+
+.deposit-history-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: var(--space-md);
+    font-size: 0.875rem;
+}
+
+.deposit-history-table th,
+.deposit-history-table td {
+    padding: var(--space-sm);
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+}
+
+.deposit-history-table th {
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.deposit-history-table tr:hover {
+    background: var(--bg-glass);
+}
+
+.deposit-history-table td a {
+    color: var(--primary);
+    text-decoration: none;
+    transition: color 0.2s;
+}
+
+.deposit-history-table td a:hover {
+    color: var(--secondary);
+    text-decoration: underline;
+}
+
+/* Bouton pour ajouter un dépôt */
+.add-deposit-btn {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-md);
+    font-size: 0.875rem;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: var(--space-md);
+}
+
+.add-deposit-btn:hover {
+    background: var(--bg-secondary);
+    border-color: var(--primary);
+}
+
+.add-deposit-btn i {
+    font-size: 0.75rem;
+}
+
+/* Styles pour le modal d'ajout de dépôt */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(10px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    width: 90%;
+    max-width: 500px;
+}
+
+.form-group {
+    margin-bottom: var(--space-md);
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: var(--space-xs);
+    font-weight: 500;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: var(--space-md);
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    transition: border-color 0.2s;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    border-color: var(--primary);
+    outline: none;
+}
+
+.form-group input::placeholder,
+.form-group textarea::placeholder {
+    color: var(--text-muted);
+}
+
+.button-group {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-md);
+}
+
+.button-group button {
+    flex: 1;
+}
+
+/* Styles responsifs */
+@media (max-width: 768px) {
+    .deposit-history-table {
+        display: block;
+        overflow-x: auto;
+    }
+    
+    .deposit-history-table th,
+    .deposit-history-table td {
+        white-space: nowrap;
+    }
+}
