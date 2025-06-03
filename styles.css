@@ -190,18 +190,15 @@ body {
     border-radius: var(--radius-xl);
     padding: var(--space-lg);
     transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: var(--space-lg);
 }
 
 .stat-card:hover {
     border-color: var(--border-hover);
     transform: translateY(-2px);
     box-shadow: var(--shadow-lg);
-}
-
-.stat-card {
-    display: flex;
-    align-items: center;
-    gap: var(--space-lg);
 }
 
 .stat-icon {
@@ -317,6 +314,7 @@ body {
 
 .strategy-content.active {
     display: block;
+    animation: fadeIn 0.3s ease-out;
 }
 
 .strategy-header {
@@ -386,6 +384,7 @@ body {
     display: flex;
     flex-direction: column;
     gap: var(--space-sm);
+    position: relative;
 }
 
 .input-group label {
@@ -403,7 +402,6 @@ body {
     border-radius: var(--radius-md);
     outline: none;
     transition: all 0.2s ease;
-    position: relative;
 }
 
 .input-group input:focus,
@@ -420,10 +418,6 @@ body {
     color: var(--text-muted);
     font-weight: 600;
     pointer-events: none;
-}
-
-.input-group {
-    position: relative;
 }
 
 /* ===== RANGE SELECTOR ===== */
@@ -830,14 +824,10 @@ body {
     bottom: 0;
     background: rgba(0, 0, 0, 0.8);
     backdrop-filter: blur(10px);
-    display: none;
+    display: flex;
     align-items: center;
     justify-content: center;
     z-index: 1000;
-}
-
-.modal.active {
-    display: flex;
 }
 
 .modal-content {
@@ -845,7 +835,7 @@ body {
     border: 1px solid var(--border);
     border-radius: var(--radius-xl);
     padding: var(--space-2xl);
-    max-width: 400px;
+    max-width: 500px;
     width: 90%;
     text-align: center;
 }
@@ -858,11 +848,6 @@ body {
     border-radius: 50%;
     animation: spin 1s linear infinite;
     margin: 0 auto var(--space-lg);
-}
-
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
 }
 
 .modal-content h3 {
@@ -890,10 +875,227 @@ body {
     animation: progress 3s ease-in-out infinite;
 }
 
+/* ===== DEPOSIT HISTORY SECTION ===== */
+.deposit-history-section {
+    margin-top: 24px;
+    background: var(--bg-glass);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-lg);
+}
+
+.deposit-history-section h4 {
+    margin-bottom: var(--space-md);
+    color: var(--text-primary);
+    font-size: 1.125rem;
+    display: flex;
+    align-items: center;
+}
+
+.deposit-history-section h4::before {
+    content: '📋';
+    margin-right: var(--space-sm);
+    font-size: 1.25rem;
+}
+
+.deposit-history-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: var(--space-md);
+    font-size: 0.875rem;
+}
+
+.deposit-history-table th,
+.deposit-history-table td {
+    padding: var(--space-sm);
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+}
+
+.deposit-history-table th {
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.deposit-history-table tr:hover {
+    background: var(--bg-glass);
+}
+
+.deposit-history-table td a {
+    color: var(--primary);
+    text-decoration: none;
+    transition: color 0.2s;
+}
+
+.deposit-history-table td a:hover {
+    color: var(--secondary);
+    text-decoration: underline;
+}
+
+/* ===== FORM GROUP ===== */
+.form-group {
+    margin-bottom: var(--space-md);
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: var(--space-xs);
+    font-weight: 500;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: var(--space-md);
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    transition: border-color 0.2s;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    border-color: var(--primary);
+    outline: none;
+}
+
+.form-group input::placeholder,
+.form-group textarea::placeholder {
+    color: var(--text-muted);
+}
+
+/* ===== BUTTONS ===== */
+.add-deposit-btn {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-md);
+    font-size: 0.875rem;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: var(--space-md);
+}
+
+.add-deposit-btn:hover {
+    background: var(--bg-secondary);
+    border-color: var(--primary);
+}
+
+.add-deposit-btn i {
+    font-size: 0.75rem;
+}
+
+.button-group {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-md);
+}
+
+.button-group button {
+    flex: 1;
+}
+
+/* ===== ANIMATIONS ===== */
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
 @keyframes progress {
     0% { width: 0%; }
     50% { width: 70%; }
     100% { width: 100%; }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ===== HOVER EFFECTS ===== */
+.stat-card:hover .stat-icon {
+    transform: scale(1.1);
+    box-shadow: var(--shadow-glow);
+}
+
+/* ===== SCROLLBAR STYLING ===== */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg-primary);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-sm);
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--primary);
+}
+
+/* ===== FOCUS STYLES ===== */
+button:focus,
+input:focus,
+select:focus {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+}
+
+/* ===== UTILITIES ===== */
+.hidden {
+    display: none !important;
+}
+
+.loading {
+    pointer-events: none;
+    opacity: 0.7;
+}
+
+.text-center {
+    text-align: center;
+}
+
+.text-primary {
+    color: var(--text-primary);
+}
+
+.text-secondary {
+    color: var(--text-secondary);
+}
+
+.text-success {
+    color: var(--success);
+}
+
+.text-warning {
+    color: var(--warning);
+}
+
+.text-danger {
+    color: var(--danger);
 }
 
 /* ===== RESPONSIVE DESIGN ===== */
@@ -981,6 +1183,16 @@ body {
         grid-template-columns: 1fr;
         text-align: center;
     }
+    
+    .deposit-history-table {
+        display: block;
+        overflow-x: auto;
+    }
+    
+    .deposit-history-table th,
+    .deposit-history-table td {
+        white-space: nowrap;
+    }
 }
 
 @media (max-width: 480px) {
@@ -999,255 +1211,5 @@ body {
     
     .section-title {
         font-size: 1.5rem;
-    }
-}
-
-/* ===== ANIMATIONS & INTERACTIONS ===== */
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(20px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-.strategy-content.active {
-    animation: fadeIn 0.3s ease-out;
-}
-
-.stat-card:hover .stat-icon {
-    transform: scale(1.1);
-    box-shadow: var(--shadow-glow);
-}
-
-/* ===== SCROLLBAR STYLING ===== */
-::-webkit-scrollbar {
-    width: 8px;
-}
-
-::-webkit-scrollbar-track {
-    background: var(--bg-primary);
-}
-
-::-webkit-scrollbar-thumb {
-    background: var(--bg-tertiary);
-    border-radius: var(--radius-sm);
-}
-
-::-webkit-scrollbar-thumb:hover {
-    background: var(--primary);
-}
-
-/* ===== FOCUS STYLES ===== */
-button:focus,
-input:focus,
-select:focus {
-    outline: 2px solid var(--primary);
-    outline-offset: 2px;
-}
-
-/* ===== UTILITIES ===== */
-.hidden {
-    display: none !important;
-}
-
-.loading {
-    pointer-events: none;
-    opacity: 0.7;
-}
-
-.text-center {
-    text-align: center;
-}
-
-.text-primary {
-    color: var(--text-primary);
-}
-
-.text-secondary {
-    color: var(--text-secondary);
-}
-
-.text-success {
-    color: var(--success);
-}
-
-.text-warning {
-    color: var(--warning);
-}
-
-.text-danger {
-    color: var(--danger);
-}
-
-/* Styles pour le tableau d'historique des dépôts */
-.deposit-history-section {
-    margin-top: 24px;
-    background: var(--bg-glass);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    padding: var(--space-lg);
-}
-
-.deposit-history-section h4 {
-    margin-bottom: var(--space-md);
-    color: var(--text-primary);
-    font-size: 1.125rem;
-    display: flex;
-    align-items: center;
-}
-
-.deposit-history-section h4::before {
-    content: '📋';
-    margin-right: var(--space-sm);
-    font-size: 1.25rem;
-}
-
-.deposit-history-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-bottom: var(--space-md);
-    font-size: 0.875rem;
-}
-
-.deposit-history-table th,
-.deposit-history-table td {
-    padding: var(--space-sm);
-    text-align: left;
-    border-bottom: 1px solid var(--border);
-}
-
-.deposit-history-table th {
-    font-weight: 600;
-    color: var(--text-secondary);
-    font-size: 0.875rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-}
-
-.deposit-history-table tr:hover {
-    background: var(--bg-glass);
-}
-
-.deposit-history-table td a {
-    color: var(--primary);
-    text-decoration: none;
-    transition: color 0.2s;
-}
-
-.deposit-history-table td a:hover {
-    color: var(--secondary);
-    text-decoration: underline;
-}
-
-/* Bouton pour ajouter un dépôt */
-.add-deposit-btn {
-    background: var(--bg-tertiary);
-    color: var(--text-primary);
-    border: 1px solid var(--border);
-    padding: var(--space-sm) var(--space-md);
-    border-radius: var(--radius-md);
-    font-size: 0.875rem;
-    font-weight: 500;
-    display: flex;
-    align-items: center;
-    gap: var(--space-xs);
-    cursor: pointer;
-    transition: all 0.2s;
-    margin-top: var(--space-md);
-}
-
-.add-deposit-btn:hover {
-    background: var(--bg-secondary);
-    border-color: var(--primary);
-}
-
-.add-deposit-btn i {
-    font-size: 0.75rem;
-}
-
-/* Styles pour le modal d'ajout de dépôt */
-.modal {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.8);
-    backdrop-filter: blur(10px);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-}
-
-.modal-content {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-xl);
-    width: 90%;
-    max-width: 500px;
-}
-
-.form-group {
-    margin-bottom: var(--space-md);
-}
-
-.form-group label {
-    display: block;
-    margin-bottom: var(--space-xs);
-    font-weight: 500;
-    color: var(--text-secondary);
-    font-size: 0.875rem;
-}
-
-.form-group input,
-.form-group select,
-.form-group textarea {
-    width: 100%;
-    background: var(--bg-tertiary);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    padding: var(--space-md);
-    color: var(--text-primary);
-    font-size: 0.875rem;
-    transition: border-color 0.2s;
-}
-
-.form-group input:focus,
-.form-group select:focus,
-.form-group textarea:focus {
-    border-color: var(--primary);
-    outline: none;
-}
-
-.form-group input::placeholder,
-.form-group textarea::placeholder {
-    color: var(--text-muted);
-}
-
-.button-group {
-    display: flex;
-    justify-content: space-between;
-    gap: var(--space-md);
-}
-
-.button-group button {
-    flex: 1;
-}
-
-/* Styles responsifs */
-@media (max-width: 768px) {
-    .deposit-history-table {
-        display: block;
-        overflow-x: auto;
-    }
-    
-    .deposit-history-table th,
-    .deposit-history-table td {
-        white-space: nowrap;
     }
 }
