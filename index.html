@@ -176,39 +176,39 @@
                 </div>
 
                 <!-- Aave Strategy -->
-<div class="strategy-content" id="aave-strategy">
-    <div class="strategy-header">
-        <h3>Aave - Lending Simple</h3>
-        <div class="strategy-stats">
-            <span class="apr-badge">APR: 3-8%</span>
-            <span class="risk-badge risk-low">Risque: Très Faible</span>
-        </div>
-    </div>
+                <div class="strategy-content" id="aave-strategy">
+                    <div class="strategy-header">
+                        <h3>Aave - Lending Simple</h3>
+                        <div class="strategy-stats">
+                            <span class="apr-badge">APR: 3-8%</span>
+                            <span class="risk-badge risk-low">Risque: Très Faible</span>
+                        </div>
+                    </div>
 
-    <div class="strategy-actions">
-        <button class="refresh-aave-btn" id="refreshAaveBtn" onclick="console.log('Bouton cliqué via HTML')">
-        <i class="fas fa-university"></i>
-            Récupérer positions Aave
-        </button>
-    </div>
+                <div class="strategy-actions">
+                    <button class="refresh-aave-btn" id="refreshAaveBtn" onclick="console.log('Bouton cliqué via HTML')">
+                        <i class="fas fa-university"></i>
+                        Récupérer positions Aave
+                    </button>
+                </div>
 
-    <div class="strategy-form">
-        <div class="form-row">
-            <div class="input-group">
-                <label>Asset à Déposer</label>
-                <select id="aaveAssetSelect">
-                    <option value="weth">WETH (Wrapped Ethereum)</option>
-                    <option value="usdc">USDC (USD Coin)</option>
-                    <option value="wmatic">WMATIC (Wrapped Polygon)</option>
-                    <option value="wbtc">WBTC (Wrapped Bitcoin)</option>
-                </select>
-            </div>
-            <div class="input-group">
-                <label>Montant à Déposer</label>
-                <input type="number" id="aaveAmount" placeholder="0.0" step="0.001">
-                <span class="input-suffix" id="aaveAssetSymbol">WETH</span>
-            </div>
-        </div>
+                <div class="strategy-form">
+                    <div class="form-row">
+                        <div class="input-group">
+                            <label>Asset à Déposer</label>
+                            <select id="aaveAssetSelect">
+                                <option value="weth">WETH (Wrapped Ethereum)</option>
+                                <option value="usdc">USDC (USD Coin)</option>
+                                <option value="wmatic">WMATIC (Wrapped Polygon)</option>
+                                <option value="wbtc">WBTC (Wrapped Bitcoin)</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label>Montant à Déposer</label>
+                            <input type="number" id="aaveAmount" placeholder="0.0" step="0.001">
+                            <span class="input-suffix" id="aaveAssetSymbol">WETH</span>
+                        </div>
+                    </div>
 
         <div class="lending-info">
             <h4>Informations de Lending</h4>
@@ -262,11 +262,46 @@
         </div>
     </div>
 
-    <!-- Aave Positions -->
-    <div class="aave-positions" id="aavePositions" style="display: none;">
-        <h4>Vos Positions Aave</h4>
-        <div class="positions-list" id="aavePositionsList">
+    <!-- Aave Positions - Version améliorée -->
+<div class="aave-positions" id="aavePositions" style="display: none;">
+    <!-- Résumé des positions -->
+    <div class="positions-summary">
+        <div class="summary-stats">
+            <div class="stat-item">
+                <span class="stat-label">Total Déposé</span>
+                <span class="stat-value" id="totalDeposited">$0.00</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Gains Totaux</span>
+                <span class="stat-value success" id="totalEarnings">$0.00</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">APR Moyen</span>
+                <span class="stat-value" id="averageAPR">0.0%</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Positions actives -->
+    <div class="positions-section">
+        <h4>Positions Actives</h4>
+        <div class="positions-grid" id="aavePositionsList">
             <!-- Les positions seront ajoutées dynamiquement -->
+        </div>
+    </div>
+
+    <!-- Historique des transactions -->
+    <div class="history-section">
+        <div class="history-header">
+            <h4>Historique des Transactions</h4>
+            <div class="history-filters">
+                <button class="filter-btn active" data-filter="all">Tout</button>
+                <button class="filter-btn" data-filter="deposit">Dépôts</button>
+                <button class="filter-btn" data-filter="withdraw">Retraits</button>
+            </div>
+        </div>
+        <div class="history-list" id="aaveHistoryList">
+            <!-- L'historique sera ajouté dynamiquement -->
         </div>
     </div>
 </div>
