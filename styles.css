@@ -2296,15 +2296,6 @@ select:focus {
     gap: var(--space-md);
 }
 
-.position-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: var(--space-md);
-    padding-bottom: var(--space-md);
-    border-bottom: 1px solid var(--border);
-}
-
 .position-info .asset {
     display: block;
     font-weight: 700;
@@ -2657,7 +2648,7 @@ select:focus {
 
 /* En-tête de carte compacte */
 .position-header {
-    margin-top: 40px;
+    margin-top: 60px;
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
