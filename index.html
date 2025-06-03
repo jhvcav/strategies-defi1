@@ -191,7 +191,7 @@
             Récupérer positions Aave
         </button>
     </div>
-    
+
     <div class="strategy-form">
         <div class="form-row">
             <div class="input-group">
@@ -405,7 +405,28 @@
             </div>
         </div>
     </div>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.1/ethers.umd.min.js"></script>
-    <script src="app.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.1/ethers.umd.min.js"></script>
+<script src="app.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Vérifier si le bouton Aave existe
+        const refreshAaveBtn = document.getElementById('refreshAaveBtn');
+        if (refreshAaveBtn) {
+            console.log('🔍 Bouton "Récupérer positions Aave" trouvé dans le DOM');
+            
+            // Ajouter un écouteur d'événement direct
+            refreshAaveBtn.addEventListener('click', function() {
+                console.log('🖱️ Bouton "Récupérer positions Aave" cliqué directement');
+                if (window.app && typeof window.app.loadAavePositions === 'function') {
+                    window.app.loadAavePositions();
+                } else {
+                    console.error('❌ app.loadAavePositions n\'est pas disponible');
+                }
+            });
+        } else {
+            console.error('❌ Bouton refreshAaveBtn non trouvé dans le DOM');
+        }
+    });
+</script>
 </body>
 </html>

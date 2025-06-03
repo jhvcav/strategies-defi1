@@ -2345,6 +2345,15 @@ async collectAaveRewards() {
             });
         }
 
+        // Bouton récupérer positions Aave
+        const refreshAaveBtn = document.getElementById('refreshAaveBtn');
+        if (refreshAaveBtn) {
+            refreshAaveBtn.addEventListener('click', () => {
+                console.log('🔄 Bouton "Récupérer positions Aave" cliqué');
+                this.loadAavePositions();
+            });
+        }   
+
         // Changement d'asset Aave
         const aaveAssetSelect = document.getElementById('aaveAssetSelect');
         if (aaveAssetSelect) {
