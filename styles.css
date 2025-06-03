@@ -190,15 +190,18 @@ body {
     border-radius: var(--radius-xl);
     padding: var(--space-lg);
     transition: all 0.3s ease;
-    display: flex;
-    align-items: center;
-    gap: var(--space-lg);
 }
 
 .stat-card:hover {
     border-color: var(--border-hover);
     transform: translateY(-2px);
     box-shadow: var(--shadow-lg);
+}
+
+.stat-card {
+    display: flex;
+    align-items: center;
+    gap: var(--space-lg);
 }
 
 .stat-icon {
@@ -314,7 +317,6 @@ body {
 
 .strategy-content.active {
     display: block;
-    animation: fadeIn 0.3s ease-out;
 }
 
 .strategy-header {
@@ -384,7 +386,6 @@ body {
     display: flex;
     flex-direction: column;
     gap: var(--space-sm);
-    position: relative;
 }
 
 .input-group label {
@@ -402,6 +403,7 @@ body {
     border-radius: var(--radius-md);
     outline: none;
     transition: all 0.2s ease;
+    position: relative;
 }
 
 .input-group input:focus,
@@ -418,6 +420,10 @@ body {
     color: var(--text-muted);
     font-weight: 600;
     pointer-events: none;
+}
+
+.input-group {
+    position: relative;
 }
 
 /* ===== RANGE SELECTOR ===== */
@@ -824,10 +830,14 @@ body {
     bottom: 0;
     background: rgba(0, 0, 0, 0.8);
     backdrop-filter: blur(10px);
-    display: flex;
+    display: none;
     align-items: center;
     justify-content: center;
     z-index: 1000;
+}
+
+.modal.active {
+    display: flex;
 }
 
 .modal-content {
@@ -835,7 +845,7 @@ body {
     border: 1px solid var(--border);
     border-radius: var(--radius-xl);
     padding: var(--space-2xl);
-    max-width: 500px;
+    max-width: 400px;
     width: 90%;
     text-align: center;
 }
@@ -848,6 +858,11 @@ body {
     border-radius: 50%;
     animation: spin 1s linear infinite;
     margin: 0 auto var(--space-lg);
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }
 
 .modal-content h3 {
@@ -875,227 +890,10 @@ body {
     animation: progress 3s ease-in-out infinite;
 }
 
-/* ===== DEPOSIT HISTORY SECTION ===== */
-.deposit-history-section {
-    margin-top: 24px;
-    background: var(--bg-glass);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    padding: var(--space-lg);
-}
-
-.deposit-history-section h4 {
-    margin-bottom: var(--space-md);
-    color: var(--text-primary);
-    font-size: 1.125rem;
-    display: flex;
-    align-items: center;
-}
-
-.deposit-history-section h4::before {
-    content: '📋';
-    margin-right: var(--space-sm);
-    font-size: 1.25rem;
-}
-
-.deposit-history-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-bottom: var(--space-md);
-    font-size: 0.875rem;
-}
-
-.deposit-history-table th,
-.deposit-history-table td {
-    padding: var(--space-sm);
-    text-align: left;
-    border-bottom: 1px solid var(--border);
-}
-
-.deposit-history-table th {
-    font-weight: 600;
-    color: var(--text-secondary);
-    font-size: 0.875rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-}
-
-.deposit-history-table tr:hover {
-    background: var(--bg-glass);
-}
-
-.deposit-history-table td a {
-    color: var(--primary);
-    text-decoration: none;
-    transition: color 0.2s;
-}
-
-.deposit-history-table td a:hover {
-    color: var(--secondary);
-    text-decoration: underline;
-}
-
-/* ===== FORM GROUP ===== */
-.form-group {
-    margin-bottom: var(--space-md);
-}
-
-.form-group label {
-    display: block;
-    margin-bottom: var(--space-xs);
-    font-weight: 500;
-    color: var(--text-secondary);
-    font-size: 0.875rem;
-}
-
-.form-group input,
-.form-group select,
-.form-group textarea {
-    width: 100%;
-    background: var(--bg-tertiary);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    padding: var(--space-md);
-    color: var(--text-primary);
-    font-size: 0.875rem;
-    transition: border-color 0.2s;
-}
-
-.form-group input:focus,
-.form-group select:focus,
-.form-group textarea:focus {
-    border-color: var(--primary);
-    outline: none;
-}
-
-.form-group input::placeholder,
-.form-group textarea::placeholder {
-    color: var(--text-muted);
-}
-
-/* ===== BUTTONS ===== */
-.add-deposit-btn {
-    background: var(--bg-tertiary);
-    color: var(--text-primary);
-    border: 1px solid var(--border);
-    padding: var(--space-sm) var(--space-md);
-    border-radius: var(--radius-md);
-    font-size: 0.875rem;
-    font-weight: 500;
-    display: flex;
-    align-items: center;
-    gap: var(--space-xs);
-    cursor: pointer;
-    transition: all 0.2s;
-    margin-top: var(--space-md);
-}
-
-.add-deposit-btn:hover {
-    background: var(--bg-secondary);
-    border-color: var(--primary);
-}
-
-.add-deposit-btn i {
-    font-size: 0.75rem;
-}
-
-.button-group {
-    display: flex;
-    justify-content: space-between;
-    gap: var(--space-md);
-}
-
-.button-group button {
-    flex: 1;
-}
-
-/* ===== ANIMATIONS ===== */
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
-
 @keyframes progress {
     0% { width: 0%; }
     50% { width: 70%; }
     100% { width: 100%; }
-}
-
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(20px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-/* ===== HOVER EFFECTS ===== */
-.stat-card:hover .stat-icon {
-    transform: scale(1.1);
-    box-shadow: var(--shadow-glow);
-}
-
-/* ===== SCROLLBAR STYLING ===== */
-::-webkit-scrollbar {
-    width: 8px;
-}
-
-::-webkit-scrollbar-track {
-    background: var(--bg-primary);
-}
-
-::-webkit-scrollbar-thumb {
-    background: var(--bg-tertiary);
-    border-radius: var(--radius-sm);
-}
-
-::-webkit-scrollbar-thumb:hover {
-    background: var(--primary);
-}
-
-/* ===== FOCUS STYLES ===== */
-button:focus,
-input:focus,
-select:focus {
-    outline: 2px solid var(--primary);
-    outline-offset: 2px;
-}
-
-/* ===== UTILITIES ===== */
-.hidden {
-    display: none !important;
-}
-
-.loading {
-    pointer-events: none;
-    opacity: 0.7;
-}
-
-.text-center {
-    text-align: center;
-}
-
-.text-primary {
-    color: var(--text-primary);
-}
-
-.text-secondary {
-    color: var(--text-secondary);
-}
-
-.text-success {
-    color: var(--success);
-}
-
-.text-warning {
-    color: var(--warning);
-}
-
-.text-danger {
-    color: var(--danger);
 }
 
 /* ===== RESPONSIVE DESIGN ===== */
@@ -1183,16 +981,6 @@ select:focus {
         grid-template-columns: 1fr;
         text-align: center;
     }
-    
-    .deposit-history-table {
-        display: block;
-        overflow-x: auto;
-    }
-    
-    .deposit-history-table th,
-    .deposit-history-table td {
-        white-space: nowrap;
-    }
 }
 
 @media (max-width: 480px) {
@@ -1211,5 +999,1290 @@ select:focus {
     
     .section-title {
         font-size: 1.5rem;
+    }
+}
+
+/* ===== ANIMATIONS & INTERACTIONS ===== */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.strategy-content.active {
+    animation: fadeIn 0.3s ease-out;
+}
+
+.stat-card:hover .stat-icon {
+    transform: scale(1.1);
+    box-shadow: var(--shadow-glow);
+}
+
+/* ===== SCROLLBAR STYLING ===== */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg-primary);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-sm);
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--primary);
+}
+
+/* ===== FOCUS STYLES ===== */
+button:focus,
+input:focus,
+select:focus {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+}
+
+/* ===== UTILITIES ===== */
+.hidden {
+    display: none !important;
+}
+
+.loading {
+    pointer-events: none;
+    opacity: 0.7;
+}
+
+.text-center {
+    text-align: center;
+}
+
+.text-primary {
+    color: var(--text-primary);
+}
+
+.text-secondary {
+    color: var(--text-secondary);
+}
+
+.text-success {
+    color: var(--success);
+}
+
+.text-warning {
+    color: var(--warning);
+}
+
+.text-danger {
+    color: var(--danger);
+}
+
+/* ===== STYLES AMÉLIORÉS POUR LA SECTION AAVE ===== */
+
+/* Amélioration du formulaire Aave */
+.aave-form-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    margin-bottom: var(--space-lg);
+}
+
+.aave-form-group label {
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    margin-bottom: var(--space-sm);
+}
+
+/* Container pour l'input avec bouton MAX intégré */
+.aave-input-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.aave-amount-input {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    padding: var(--space-md) 120px var(--space-md) var(--space-md);
+    border-radius: var(--radius-md);
+    outline: none;
+    transition: all 0.2s ease;
+    width: 100%;
+    font-size: 1rem;
+}
+
+.aave-amount-input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.aave-input-suffix {
+    position: absolute;
+    right: var(--space-md);
+    color: var(--text-muted);
+    font-weight: 600;
+    pointer-events: none;
+    font-size: 0.875rem;
+}
+
+.aave-max-button {
+    position: absolute;
+    right: 60px;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: var(--radius-sm);
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.aave-max-button:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+}
+
+/* Affichage du solde disponible - style amélioré */
+.aave-balance-display {
+    background: linear-gradient(135deg, var(--bg-glass) 0%, rgba(99, 102, 241, 0.05) 100%);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: var(--space-md);
+    margin-top: var(--space-sm);
+    backdrop-filter: blur(10px);
+    transition: all 0.2s ease;
+}
+
+.aave-balance-display:hover {
+    border-color: var(--border-hover);
+}
+
+.aave-balance-label {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    font-weight: 500;
+    margin-right: var(--space-sm);
+}
+
+.aave-balance-value {
+    color: var(--success);
+    font-weight: 700;
+    font-size: 1rem;
+    margin-left: var(--space-sm);
+}
+
+.aave-balance-value.balance-zero {
+    color: var(--danger);
+}
+
+.aave-balance-type {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    margin-left: var(--space-sm);
+    background: var(--bg-tertiary);
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+}
+
+.aave-balance-warning {
+    color: var(--warning);
+    font-size: 0.875rem;
+    margin-left: var(--space-sm);
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+}
+
+/* Message d'erreur pour solde insuffisant */
+.aave-balance-error {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(239, 68, 68, 0.05) 100%);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: var(--danger);
+    border-radius: var(--radius-md);
+    padding: var(--space-md);
+    margin-top: var(--space-sm);
+    display: none;
+    font-size: 0.875rem;
+    font-weight: 500;
+    backdrop-filter: blur(10px);
+}
+
+.aave-balance-error.show {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    animation: fadeIn 0.3s ease-out;
+}
+
+/* Amélioration du select d'asset */
+.aave-asset-select {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    padding: var(--space-md);
+    border-radius: var(--radius-md);
+    outline: none;
+    transition: all 0.2s ease;
+    width: 100%;
+    font-size: 1rem;
+    cursor: pointer;
+}
+
+.aave-asset-select:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.aave-asset-select:hover {
+    border-color: var(--border-hover);
+}
+
+/* Amélioration des informations de lending */
+.aave-lending-info {
+    background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-lg);
+    margin: var(--space-lg) 0;
+}
+
+.aave-lending-info h4 {
+    margin-bottom: var(--space-lg);
+    color: var(--text-primary);
+    font-size: 1.125rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.aave-lending-info h4::before {
+    content: '💰';
+    font-size: 1.25rem;
+}
+
+.aave-info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--space-md);
+}
+
+.aave-info-item {
+    background: var(--bg-glass);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: var(--space-md);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all 0.2s ease;
+}
+
+.aave-info-item:hover {
+    border-color: var(--border-hover);
+    transform: translateY(-1px);
+}
+
+.aave-info-item span {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
+
+.aave-info-item strong {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+/* Amélioration des boutons d'action Aave */
+.aave-strategy-actions {
+    display: flex;
+    gap: var(--space-md);
+    margin-top: var(--space-xl);
+}
+
+.aave-strategy-btn {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+    color: white;
+    border: none;
+    padding: var(--space-lg) var(--space-xl);
+    border-radius: var(--radius-lg);
+    font-size: 1rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-sm);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: var(--shadow-md);
+    flex: 1;
+    min-height: 60px;
+}
+
+.aave-strategy-btn:hover:not(.disabled) {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-glow);
+}
+
+.aave-strategy-btn:active:not(.disabled) {
+    transform: translateY(0);
+}
+
+.aave-strategy-btn.disabled {
+    background: linear-gradient(135deg, var(--text-muted) 0%, #64748b 100%);
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.aave-strategy-btn.disabled:hover {
+    transform: none;
+    box-shadow: var(--shadow-md);
+}
+
+.aave-strategy-btn.secondary {
+    background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+}
+
+.aave-strategy-btn.secondary:hover {
+    border-color: var(--primary);
+    box-shadow: 0 0 20px rgba(99, 102, 241, 0.2);
+}
+
+/* Positions Aave */
+.aave-positions {
+    background: linear-gradient(135deg, var(--bg-glass) 0%, rgba(16, 185, 129, 0.05) 100%);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-lg);
+    margin-top: var(--space-xl);
+    backdrop-filter: blur(10px);
+}
+
+.aave-positions h4 {
+    margin-bottom: var(--space-lg);
+    color: var(--text-primary);
+    font-size: 1.125rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.aave-positions h4::before {
+    content: '📊';
+    font-size: 1.25rem;
+}
+
+.aave-positions-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+}
+
+.aave-position-item {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: var(--space-lg);
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: var(--space-lg);
+    transition: all 0.2s ease;
+}
+
+.aave-position-item:hover {
+    border-color: var(--success);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+}
+
+.aave-position-info {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+}
+
+.aave-position-info .asset {
+    font-weight: 700;
+    color: var(--text-primary);
+    font-size: 1.125rem;
+}
+
+.aave-position-info .amount {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
+
+.aave-position-yield {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: var(--space-xs);
+}
+
+.aave-position-yield .apr {
+    color: var(--success);
+    font-weight: 700;
+    font-size: 1.125rem;
+}
+
+.aave-position-yield .pnl {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
+
+/* Responsive pour la section Aave */
+@media (max-width: 768px) {
+    .aave-strategy-actions {
+        flex-direction: column;
+    }
+    
+    .aave-info-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .aave-position-item {
+        grid-template-columns: 1fr;
+        text-align: center;
+        gap: var(--space-md);
+    }
+    
+    .aave-position-yield {
+        align-items: center;
+    }
+    
+    .aave-input-container {
+        flex-direction: column;
+        gap: var(--space-sm);
+    }
+    
+    .aave-amount-input {
+        padding-right: var(--space-md);
+    }
+    
+    .aave-max-button {
+        position: static;
+        align-self: flex-end;
+    }
+    
+    .aave-input-suffix {
+        position: static;
+        align-self: flex-end;
+        margin-top: var(--space-xs);
+    }
+}
+
+/* Animation pour les changements de balance */
+@keyframes balanceUpdate {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.02); }
+    100% { transform: scale(1); }
+}
+
+.aave-balance-value.updating {
+    animation: balanceUpdate 0.3s ease-out;
+}
+
+/* Indicateur de chargement pour les soldes */
+.aave-balance-loading {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-xs);
+    color: var(--text-muted);
+}
+
+.aave-balance-loading::after {
+    content: '';
+    width: 12px;
+    height: 12px;
+    border: 2px solid var(--border);
+    border-top: 2px solid var(--primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+/* Style pour la sélection d'asset avec icônes */
+.aave-asset-option {
+    padding: var(--space-sm);
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.aave-asset-icon {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    color: white;
+    font-weight: bold;
+}
+
+/* Override pour la section Aave - utilise les mêmes styles que Uniswap */
+#aave-strategy .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-lg);
+    margin-bottom: var(--space-xl);
+}
+
+#aave-strategy .input-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    position: relative;
+}
+
+#aave-strategy .input-group label {
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
+
+/* Select d'asset avec le même style que les autres selects */
+#aave-strategy .input-group select {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    padding: var(--space-md);
+    border-radius: var(--radius-md);
+    outline: none;
+    transition: all 0.2s ease;
+    font-size: 1rem;
+    cursor: pointer;
+}
+
+#aave-strategy .input-group select:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+#aave-strategy .input-group select:hover {
+    border-color: var(--border-hover);
+}
+
+/* Input avec bouton MAX intégré - même style que les autres inputs */
+.amount-input-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+#aave-strategy .amount-input-container input {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    padding: var(--space-md) 120px var(--space-md) var(--space-md);
+    border-radius: var(--radius-md);
+    outline: none;
+    transition: all 0.2s ease;
+    width: 100%;
+    font-size: 1rem;
+}
+
+#aave-strategy .amount-input-container input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.max-button {
+    position: absolute;
+    right: 60px;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+    color: white;
+    border: none;
+    padding: 6px 10px;
+    border-radius: var(--radius-sm);
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.max-button:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+}
+
+.input-suffix {
+    position: absolute;
+    right: var(--space-md);
+    color: var(--text-muted);
+    font-weight: 600;
+    pointer-events: none;
+    font-size: 0.875rem;
+}
+
+/* Affichage du solde - style discret et élégant */
+.balance-display {
+    background: rgba(99, 102, 241, 0.05);
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    border-radius: var(--radius-md);
+    padding: var(--space-sm) var(--space-md);
+    margin-top: var(--space-sm);
+    font-size: 0.875rem;
+    transition: all 0.2s ease;
+}
+
+.balance-label {
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.balance-value {
+    color: var(--success);
+    font-weight: 700;
+    margin-left: var(--space-sm);
+}
+
+.balance-value.balance-zero {
+    color: var(--danger);
+}
+
+.balance-type {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    margin-left: var(--space-sm);
+    background: var(--bg-tertiary);
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+}
+
+.balance-warning {
+    color: var(--warning);
+    font-size: 0.875rem;
+    margin-left: var(--space-sm);
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+}
+
+/* Message d'erreur */
+.balance-error {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: var(--danger);
+    border-radius: var(--radius-md);
+    padding: var(--space-sm) var(--space-md);
+    margin-top: var(--space-sm);
+    display: none;
+    font-size: 0.875rem;
+    font-weight: 500;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.balance-error.show {
+    display: flex;
+    animation: fadeIn 0.3s ease-out;
+}
+
+/* Informations de lending - même style que yield-preview */
+.lending-info {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-lg);
+    margin: var(--space-lg) 0;
+}
+
+.lending-info h4 {
+    margin-bottom: var(--space-lg);
+    color: var(--text-primary);
+    font-size: 1.125rem;
+}
+
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: var(--space-md);
+}
+
+.info-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-sm) 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.info-item:last-child {
+    border-bottom: none;
+}
+
+.info-item span {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
+
+.info-item strong {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+/* Actions buttons - même style que strategy-btn */
+.strategy-actions {
+    display: flex;
+    gap: var(--space-md);
+    margin-top: var(--space-xl);
+}
+
+.strategy-actions .strategy-btn {
+    flex: 1;
+}
+
+.strategy-btn.disabled {
+    background: linear-gradient(135deg, var(--text-muted) 0%, #64748b 100%);
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.strategy-btn.disabled:hover {
+    transform: none;
+    box-shadow: var(--shadow-md);
+}
+
+.strategy-btn.secondary {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+}
+
+.strategy-btn.secondary:hover {
+    border-color: var(--primary);
+    background: var(--bg-secondary);
+}
+
+/* Positions Aave */
+.aave-positions {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-lg);
+    margin-top: var(--space-xl);
+}
+
+.aave-positions h4 {
+    margin-bottom: var(--space-lg);
+    color: var(--text-primary);
+    font-size: 1.125rem;
+}
+
+.positions-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+}
+
+.aave-position-item {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: var(--space-lg);
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: var(--space-lg);
+    transition: all 0.2s ease;
+}
+
+.aave-position-item:hover {
+    border-color: var(--primary);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+}
+
+.position-info {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+}
+
+.position-info .asset {
+    font-weight: 700;
+    color: var(--text-primary);
+    font-size: 1.125rem;
+}
+
+.position-info .amount {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
+
+.position-yield {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: var(--space-xs);
+}
+
+.position-yield .apr {
+    color: var(--success);
+    font-weight: 700;
+    font-size: 1.125rem;
+}
+
+.position-yield .pnl {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
+
+/* Responsive pour Aave */
+@media (max-width: 768px) {
+    #aave-strategy .form-row {
+        grid-template-columns: 1fr;
+    }
+    
+    .strategy-actions {
+        flex-direction: column;
+    }
+    
+    .info-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .aave-position-item {
+        grid-template-columns: 1fr;
+        text-align: center;
+        gap: var(--space-md);
+    }
+    
+    .position-yield {
+        align-items: center;
+    }
+    
+    .amount-input-container {
+        flex-wrap: wrap;
+    }
+    
+    .amount-input-container input {
+        padding-right: var(--space-md);
+        margin-bottom: var(--space-sm);
+    }
+    
+    .max-button {
+        position: static;
+        margin-left: auto;
+    }
+    
+    .input-suffix {
+        position: static;
+        margin-left: auto;
+        margin-top: var(--space-xs);
+    }
+}
+
+/* Animation pour les changements de valeurs */
+@keyframes valueUpdate {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+.highlight.updating,
+.safe.updating {
+    animation: valueUpdate 0.3s ease-out;
+}
+
+/* Style pour le chargement des soldes */
+.balance-loading::after {
+    content: '';
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    margin-left: var(--space-xs);
+    border: 2px solid var(--border);
+    border-top: 2px solid var(--primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+/* Style pour les options du select avec émojis */
+#aaveAssetSelect option {
+    padding: var(--space-sm);
+    font-size: 1rem;
+}
+
+/* ===== CSS À AJOUTER POUR CORRIGER LE TABLEAU DES POSITIONS ===== */
+
+/* Structure du tableau positions */
+.positions-table {
+    background: var(--bg-glass);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    overflow: hidden;
+}
+
+.table-header {
+    background: var(--bg-secondary);
+    padding: var(--space-lg);
+    display: grid;
+    grid-template-columns: 1.8fr 1.2fr 1.2fr 0.8fr 0.8fr 1fr;
+    gap: var(--space-md);
+    font-weight: 700;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid var(--border);
+}
+
+.table-body {
+    min-height: 200px;
+}
+
+/* Lignes du tableau */
+.position-row {
+    display: grid;
+    grid-template-columns: 1.8fr 1.2fr 1.2fr 0.8fr 0.8fr 1fr;
+    gap: var(--space-md);
+    padding: var(--space-lg);
+    border-bottom: 1px solid var(--border);
+    transition: all 0.2s ease;
+    align-items: center;
+}
+
+.position-row:last-child {
+    border-bottom: none;
+}
+
+.position-row:hover {
+    background: rgba(99, 102, 241, 0.05);
+}
+
+/* Cellules du tableau */
+.position-cell {
+    display: flex;
+    align-items: center;
+    min-height: 40px;
+}
+
+.strategy-cell .cell-content {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.strategy-cell i {
+    color: var(--primary);
+    font-size: 1.125rem;
+}
+
+.pool-name {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.amount-value {
+    font-weight: 600;
+    color: var(--text-primary);
+    font-family: 'Courier New', monospace;
+}
+
+.apr-value {
+    font-weight: 700;
+    font-size: 1.125rem;
+}
+
+.pnl-value {
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.actions-cell {
+    display: flex;
+    gap: var(--space-sm);
+    justify-content: center;
+}
+
+.action-btn {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 0.875rem;
+}
+
+.action-btn:hover {
+    background: var(--danger);
+    color: white;
+    border-color: var(--danger);
+    transform: translateY(-1px);
+}
+
+.action-btn.view-btn:hover {
+    background: var(--primary);
+    border-color: var(--primary);
+}
+
+/* État vide */
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-2xl);
+    text-align: center;
+    color: var(--text-muted);
+    min-height: 200px;
+}
+
+.empty-state i {
+    font-size: 3rem;
+    margin-bottom: var(--space-lg);
+    color: var(--text-secondary);
+}
+
+.empty-state p {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin-bottom: var(--space-sm);
+    color: var(--text-secondary);
+}
+
+.empty-state span {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+}
+
+/* Responsive pour le tableau */
+@media (max-width: 1024px) {
+    .table-header {
+        grid-template-columns: 1.5fr 1fr 1fr 0.8fr 1fr;
+        font-size: 0.75rem;
+    }
+    
+    .position-row {
+        grid-template-columns: 1.5fr 1fr 1fr 0.8fr 1fr;
+    }
+    
+    /* Masquer la colonne PnL sur tablette */
+    .table-header span:nth-child(5),
+    .position-row .pnl-cell {
+        display: none;
+    }
+}
+
+@media (max-width: 768px) {
+    .table-header {
+        display: none;
+    }
+    
+    .position-row {
+        display: block;
+        padding: var(--space-lg);
+        background: var(--bg-secondary);
+        margin-bottom: var(--space-md);
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border);
+    }
+    
+    .position-cell {
+        display: block;
+        margin-bottom: var(--space-sm);
+        min-height: auto;
+    }
+    
+    .position-cell:last-child {
+        margin-bottom: 0;
+    }
+    
+    /* Labels pour mobile */
+    .position-cell::before {
+        content: attr(data-label);
+        font-weight: 600;
+        color: var(--text-secondary);
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        display: block;
+        margin-bottom: var(--space-xs);
+    }
+    
+    .strategy-cell::before {
+        content: "Stratégie:";
+    }
+    
+    .pool-cell::before {
+        content: "Pool/Asset:";
+    }
+    
+    .amount-cell::before {
+        content: "Montant:";
+    }
+    
+    .apr-cell::before {
+        content: "APR:";
+    }
+    
+    .pnl-cell::before {
+        content: "PnL:";
+    }
+    
+    .actions-cell::before {
+        content: "Actions:";
+    }
+    
+    .actions-cell {
+        justify-content: flex-start;
+    }
+}
+
+/* Animations */
+@keyframes slideInRow {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.position-row {
+    animation: slideInRow 0.3s ease-out;
+}
+
+/* Couleurs pour les types de texte */
+.text-success {
+    color: var(--success) !important;
+}
+
+.text-danger {
+    color: var(--danger) !important;
+}
+
+.text-primary {
+    color: var(--text-primary) !important;
+}
+
+.text-secondary {
+    color: var(--text-secondary) !important;
+}
+
+.contract-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-lg);
+    padding: var(--space-lg);
+    background: var(--bg-glass);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    backdrop-filter: blur(10px);
+}
+
+.refresh-data-btn {
+    background: linear-gradient(135deg, var(--success) 0%, #16a34a 100%);
+    color: white;
+    border: none;
+    padding: var(--space-md) var(--space-lg);
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 0.875rem;
+    white-space: nowrap;
+}
+
+.refresh-data-btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+}
+
+.refresh-data-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-xl);
+}
+
+.refresh-aave-btn {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+    color: white;
+    border: none;
+    padding: var(--space-sm) var(--space-lg);
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 0.875rem;
+}
+
+.refresh-aave-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+}
+
+/* Animation rotation pour les icônes */
+.refresh-data-btn i,
+.refresh-aave-btn i {
+    transition: transform 0.3s ease;
+}
+
+.refresh-data-btn:hover i,
+.refresh-aave-btn:hover i {
+    transform: rotate(180deg);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .contract-info {
+        flex-direction: column;
+        gap: var(--space-md);
+        text-align: center;
+    }
+    
+    .section-header {
+        flex-direction: column;
+        gap: var(--space-md);
+        align-items: flex-start;
+    }
+    
+    .refresh-data-btn,
+    .refresh-aave-btn {
+        align-self: center;
     }
 }
