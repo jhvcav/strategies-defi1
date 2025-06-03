@@ -137,13 +137,7 @@ Aave Strategy <body>
         <main class="main-content">
             <!-- Dashboard Overview -->
             <section class="dashboard-overview">
-                <div class="contract-info">
-                    <p><strong>Contrat Uniswap V3:</strong> 
-                       <a href="https://polygonscan.com/address/0x669227b0bB3A6BFC717fe8bEA17EEF3cB37f5eBC" target="_blank">
-                           0x669227b0bB3A6BFC717fe8bEA17EEF3cB37f5eBC
-                       </a>
-                    </p>
-                </div>
+                
                 <div class="stats-grid">
                     <div class="stat-card">
                         <div class="stat-icon">
@@ -287,98 +281,98 @@ Aave Strategy <body>
                 </div>
 
                 <!-- Aave Strategy - Structure identique aux autres -->
-<div class="strategy-content" id="aave-strategy">
-    <div class="strategy-header">
-        <h3>Aave - Lending Simple</h3>
-        <div class="strategy-stats">
-            <span class="apr-badge">APR: 3-8%</span>
-            <span class="risk-badge risk-low">Risque: Très Faible</span>
-        </div>
-    </div>
+                    <div class="strategy-content" id="aave-strategy">
+                        <div class="strategy-header">
+                            <h3>Aave - Lending Simple</h3>
+                            <div class="strategy-stats">
+                                <span class="apr-badge">APR: 3-8%</span>
+                                <span class="risk-badge risk-low">Risque: Très Faible</span>
+                            </div>
+                        </div>
     
-    <div class="strategy-form">
-        <!-- Même structure que Uniswap -->
-        <div class="form-row">
-            <div class="input-group">
-                <label>Asset à Déposer</label>
-                <select id="aaveAssetSelect">
-                    <option value="weth">💎 WETH (Wrapped Ethereum)</option>
-                    <option value="usdc">💵 USDC (USD Coin)</option>
-                    <option value="wmatic">🟣 WMATIC (Wrapped Polygon)</option>
-                    <option value="wbtc">🟠 WBTC (Wrapped Bitcoin)</option>
-                </select>
-            </div>
-            <div class="input-group">
-                <label>Montant à Déposer</label>
-                <div class="amount-input-container">
-                    <input type="number" id="aaveAmount" placeholder="0.0" step="0.000001">
-                    <button type="button" class="max-button" onclick="app.setMaxAmount()">MAX</button>
-                    <!--<span class="input-suffix" id="aaveAssetSymbol">WETH</span>-->
-                </div>
+                        <div class="strategy-form">
+                            <!-- Même structure que Uniswap -->
+                            <div class="form-row">
+                                <div class="input-group">
+                                    <label>Asset à Déposer</label>
+                                    <select id="aaveAssetSelect">
+                                        <option value="weth">💎 WETH (Wrapped Ethereum)</option>
+                                        <option value="usdc">💵 USDC (USD Coin)</option>
+                                        <option value="wmatic">🟣 WMATIC (Wrapped Polygon)</option>
+                                        <option value="wbtc">🟠 WBTC (Wrapped Bitcoin)</option>
+                                    </select>
+                                </div>
+                                <div class="input-group">
+                                    <label>Montant à Déposer</label>
+                                    <div class="amount-input-container">
+                                        <input type="number" id="aaveAmount" placeholder="0.0" step="0.000001">
+                                        <button type="button" class="max-button" onclick="app.setMaxAmount()">MAX</button>
+                                        <!--<span class="input-suffix" id="aaveAssetSymbol">WETH</span>-->
+                                    </div>
                 
-                <!-- Affichage du solde -->
-                <div class="balance-display" id="aaveBalanceDisplay">
-                    <span class="balance-label">Solde disponible:</span>
-                    <span class="balance-value balance-loading">Chargement...</span>
-                </div>
+                                    <!-- Affichage du solde -->
+                                    <div class="balance-display" id="aaveBalanceDisplay">
+                                        <span class="balance-label">Solde disponible:</span>
+                                        <span class="balance-value balance-loading">Chargement...</span>
+                                    </div>
                 
-                <!-- Message d'erreur -->
-                <div class="balance-error" id="aaveBalanceError">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    <span>Message d'erreur</span>
-                </div>
-            </div>
-        </div>
+                                    <!-- Message d'erreur -->
+                                    <div class="balance-error" id="aaveBalanceError">
+                                        <i class="fas fa-exclamation-triangle"></i>
+                                        <span>Message d'erreur</span>
+                                    </div>
+                                </div>
+                            </div>
 
-        <!-- Informations de lending - même style que yield-preview -->
-        <div class="lending-info">
-    <h4>Informations de Lending</h4>
-    <div class="info-grid">
-        <div class="info-item">
-            <span>Type de Stratégie:</span>
-            <strong>Lending Simple</strong>
-        </div>
-        <div class="info-item">
-            <span>Token Reçu:</span>
-            <strong id="aTokenName">aWETH</strong>
-        </div>
-        <div class="info-item">
-            <span>APR Actuel:</span>
-            <strong>5.2% APR</strong>
-        </div>
-        <div class="info-item">
-            <span>Liquidité:</span>
-            <strong>Retrait immédiat</strong>
-        </div>
-    </div>
+                            <!-- Informations de lending - même style que yield-preview -->
+                            <div class="lending-info">
+                        <h4>Informations de Lending</h4>
+                        <div class="info-grid">
+                            <div class="info-item">
+                                <span>Type de Stratégie:</span>
+                                <strong>Lending Simple</strong>
+                            </div>
+                            <div class="info-item">
+                                <span>Token Reçu:</span>
+                                <strong id="aTokenName">aWETH</strong>
+                            </div>
+                            <div class="info-item">
+                                <span>APR Actuel:</span>
+                                <strong>5.2% APR</strong>
+                            </div>
+                            <div class="info-item">
+                                <span>Liquidité:</span>
+                                <strong>Retrait immédiat</strong>
+                            </div>
+                        </div>
     
-    <!-- NOUVEAU: Section d'aide -->
-    <div class="lending-help">
-        <div class="help-item">
-            <i class="fas fa-info-circle"></i>
-            <div class="help-content">
-                <h5>Comment ça fonctionne ?</h5>
-                <p>Vos tokens génèrent automatiquement des intérêts. Vous recevez des aTokens qui représentent votre dépôt + intérêts accumulés.</p>
-            </div>
-        </div>
+                        <!-- NOUVEAU: Section d'aide -->
+                        <div class="lending-help">
+                            <div class="help-item">
+                                <i class="fas fa-info-circle"></i>
+                                <div class="help-content">
+                                    <h5>Comment ça fonctionne ?</h5>
+                                    <p>Vos tokens génèrent automatiquement des intérêts. Vous recevez des aTokens qui représentent votre dépôt + intérêts accumulés.</p>
+                                </div>
+                            </div>
         
-        <div class="help-item">
-            <i class="fas fa-coins"></i>
-            <div class="help-content">
-                <h5>Intérêts en temps réel</h5>
-                <p>Les intérêts s'accumulent en permanence dans votre wallet. Pas besoin de réclamer quoi que ce soit.</p>
-            </div>
-        </div>
+                            <div class="help-item">
+                                <i class="fas fa-coins"></i>
+                                <div class="help-content">
+                                    <h5>Intérêts en temps réel</h5>
+                                    <p>Les intérêts s'accumulent en permanence dans votre wallet. Pas besoin de réclamer quoi que ce soit.</p>
+                                </div>
+                            </div>
         
-        <div class="help-item">
-            <i class="fas fa-hand-holding-usd"></i>
-            <div class="help-content">
-                <h5>Retrait flexible</h5>
-                <p>Retirez vos fonds à tout moment, sans période de blocage ni pénalités.</p>
-            </div>
-        </div>
-    </div>
-</div>
+                            <div class="help-item">
+                                <i class="fas fa-hand-holding-usd"></i>
+                                <div class="help-content">
+                                    <h5>Retrait flexible</h5>
+                                    <p>Retirez vos fonds à tout moment, sans période de blocage ni pénalités.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
 
 <!-- CSS pour la section d'aide -->
 <style>
