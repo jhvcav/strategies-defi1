@@ -1063,497 +1063,237 @@ class YieldMaxApp {
 
     // Fonction pour mettre à jour l'affichage des positions Aave avec les boutons d'action
     updateAavePositionsWithActions(currentValue, earnings, earningsPercentage, currentAPY, actualUSDCAmount, projections, depositHistory) {
-        // Récupérer les éléments
-        const positionsSection = document.getElementById('aavePositions');
-        const positionsList = document.getElementById('aavePositionsList');
-        
-        if (!positionsSection || !positionsList) {
-            console.error('❌ Éléments pour l\'affichage des positions Aave non trouvés');
-            return;
-        }
-        
-        // Vider et afficher la section
-        positionsList.innerHTML = '';
-        positionsSection.style.display = 'block';
-        
-        // Créer l'élément de position principal
-        const positionItem = document.createElement('div');
-        positionItem.className = 'aave-position-item';
-        
-        // En-tête avec les informations de base
-        const header = document.createElement('div');
-        header.className = 'position-header';
-        
-        // Information sur la position
-        const info = document.createElement('div');
-        info.className = 'position-info';
-        
-        const assetSpan = document.createElement('span');
-        assetSpan.className = 'asset';
-        assetSpan.textContent = 'USDC Supply';
-        
-        const amountSpan = document.createElement('span');
-        amountSpan.className = 'amount';
-        amountSpan.textContent = `${actualUSDCAmount} USDC`;
-        
-        info.appendChild(assetSpan);
-        info.appendChild(amountSpan);
-        
-        // Informations sur le rendement
-        const yieldInfo = document.createElement('div');
-        yieldInfo.className = 'position-yield';
-        
-        const apySpan = document.createElement('span');
-        apySpan.className = 'apr'; // Garder la classe CSS existante
-        apySpan.textContent = `${currentAPY.toFixed(2)}% APY`; // Changer APR en APY
-        
-        const pnlSpan = document.createElement('span');
-        pnlSpan.className = `pnl ${earnings >= 0 ? 'text-success' : 'text-danger'}`;
-        pnlSpan.textContent = `${earnings >= 0 ? '+' : ''}${earnings.toFixed(4)} USD (${earnings >= 0 ? '+' : ''}${earningsPercentage.toFixed(4)}%)`;
-        
-        yieldInfo.appendChild(apySpan);
-        yieldInfo.appendChild(pnlSpan);
-        
-        header.appendChild(info);
-        header.appendChild(yieldInfo);
-        
-        // Détails avec les valeurs actuelles et projections
-        const details = document.createElement('div');
-        details.className = 'position-details';
-        
-        // Fonction d'aide pour créer des éléments de détail
-        function createDetailItem(label, value, isSuccess = false) {
-            const detailItem = document.createElement('div');
-            detailItem.className = 'detail-item';
-            
-            const labelSpan = document.createElement('span');
-            labelSpan.className = 'label';
-            labelSpan.textContent = label;
-            
-            const valueSpan = document.createElement('span');
-            valueSpan.className = isSuccess ? 'value text-success' : 'value';
-            valueSpan.textContent = value;
-            
-            detailItem.appendChild(labelSpan);
-            detailItem.appendChild(valueSpan);
-            
-            return detailItem;
-        }
-        
-        // Ajouter les détails
-        const initialDeposit = depositHistory.reduce((sum, entry) => sum + entry.amount, 0);
-        
-        details.appendChild(createDetailItem('Dépôt initial total:', `${initialDeposit.toFixed(6)} USDC`));
-        details.appendChild(createDetailItem('Valeur actuelle:', `${actualUSDCAmount} USDC`));
-        details.appendChild(createDetailItem(
-            'Gains accumulés:', 
-            `${earnings >= 0 ? '+' : ''}${earnings.toFixed(4)} USDC (${earnings >= 0 ? '+' : ''}${earningsPercentage.toFixed(4)}%)`,
-            earnings >= 0
-        ));
-        
-        // Projections basées sur l'APY actuel
-        details.appendChild(createDetailItem('Rendement journalier:', `+${projections.daily} USDC`, true));
-        details.appendChild(createDetailItem('Rendement mensuel:', `+${projections.monthly} USDC`, true));
-        details.appendChild(createDetailItem('Rendement annuel:', `+${projections.yearly} USDC`, true));
-        
-        // Boutons d'action
-        const actions = document.createElement('div');
-        actions.className = 'position-actions';
-        
-        // Bouton pour récupérer les rendements
-        const collectBtn = document.createElement('button');
-        collectBtn.className = 'action-btn collect-btn';
-        collectBtn.onclick = () => this.collectAaveRewards();
-        
-        const collectIcon = document.createElement('i');
-        collectIcon.className = 'fas fa-coins';
-        collectBtn.appendChild(collectIcon);
-        collectBtn.appendChild(document.createTextNode(' Récupérer les rendements'));
-        
-        // Bouton pour retirer le capital
-        const withdrawBtn = document.createElement('button');
-        withdrawBtn.className = 'action-btn withdraw-btn';
-        withdrawBtn.onclick = () => this.withdrawAavePosition();
-        
-        const withdrawIcon = document.createElement('i');
-        withdrawIcon.className = 'fas fa-wallet';
-        withdrawBtn.appendChild(withdrawIcon);
-        withdrawBtn.appendChild(document.createTextNode(' Retirer le capital'));
-        
-        // Lien pour voir sur Aave
-        const viewLink = document.createElement('a');
-        viewLink.href = 'https://app.aave.com/dashboard';
-        viewLink.target = '_blank';
-        viewLink.className = 'action-btn view-btn';
-        
-        const viewIcon = document.createElement('i');
-        viewIcon.className = 'fas fa-external-link-alt';
-        viewLink.appendChild(viewIcon);
-        viewLink.appendChild(document.createTextNode(' Voir sur Aave'));
-        
-        actions.appendChild(collectBtn);
-        actions.appendChild(withdrawBtn);
-        actions.appendChild(viewLink);
-        
-        // Assembler la section principale
-        positionItem.appendChild(header);
-        positionItem.appendChild(details);
-        positionItem.appendChild(actions);
-        
-        // Tableau d'historique des dépôts
-        const historySection = document.createElement('div');
-        historySection.className = 'deposit-history-section';
-        
-        const historyTitle = document.createElement('h4');
-        historyTitle.textContent = 'Historique des dépôts';
-        historySection.appendChild(historyTitle);
-        
-        // Créer le tableau d'historique
-        const historyTable = document.createElement('table');
-        historyTable.className = 'deposit-history-table';
-        
-        // En-tête du tableau
-        const thead = document.createElement('thead');
-        const headerRow = document.createElement('tr');
-        
-        ['Date', 'Asset', 'Montant', 'APY au dépôt', 'Transaction', 'Notes'].forEach(text => {
-            const th = document.createElement('th');
-            th.textContent = text;
-            headerRow.appendChild(th);
-        });
-        
-        thead.appendChild(headerRow);
-        historyTable.appendChild(thead);
-        
-        // Corps du tableau
-        const tbody = document.createElement('tbody');
-        
-        depositHistory.forEach(entry => {
-            const row = document.createElement('tr');
-            
-            // Date formatée
-            const dateCell = document.createElement('td');
-            const date = new Date(entry.date);
-            dateCell.textContent = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-            row.appendChild(dateCell);
-            
-            // Asset
-            const assetCell = document.createElement('td');
-            assetCell.textContent = entry.asset;
-            row.appendChild(assetCell);
-            
-            // Montant
-            const amountCell = document.createElement('td');
-            amountCell.textContent = entry.amount.toFixed(6);
-            row.appendChild(amountCell);
-            
-            // APY au moment du dépôt
-            const apyCell = document.createElement('td');
-            apyCell.textContent = entry.apy ? entry.apy.toFixed(2) + '%' : 'N/A';
-            row.appendChild(apyCell);
-            
-            // Hash de transaction
-            const txCell = document.createElement('td');
-            if (entry.txHash) {
-                const txLink = document.createElement('a');
-                txLink.href = `https://polygonscan.com/tx/${entry.txHash}`;
-                txLink.target = '_blank';
-                txLink.textContent = entry.txHash.substring(0, 8) + '...';
-                txCell.appendChild(txLink);
-            } else {
-                txCell.textContent = 'N/A';
-            }
-            row.appendChild(txCell);
-            
-            // Notes
-            const notesCell = document.createElement('td');
-            notesCell.textContent = entry.notes || '';
-            row.appendChild(notesCell);
-            
-            tbody.appendChild(row);
-        });
-        
-        historyTable.appendChild(tbody);
-        historySection.appendChild(historyTable);
-        
-        // Bouton pour ajouter un dépôt manuellement (pour les dépôts passés)
-        const addDepositBtn = document.createElement('button');
-        addDepositBtn.className = 'action-btn add-deposit-btn';
-        addDepositBtn.innerHTML = '<i class="fas fa-plus"></i> Ajouter un dépôt manuellement';
-        addDepositBtn.onclick = () => this.showAddDepositModal();
-        
-        historySection.appendChild(addDepositBtn);
-        
-        // Ajouter tout à la liste des positions
-        positionsList.appendChild(positionItem);
-        positionsList.appendChild(historySection);
-        
-        // Afficher le bouton de retrait dans la section principale
-        const withdrawMainBtn = document.getElementById('aaveWithdrawBtn');
-        if (withdrawMainBtn) withdrawMainBtn.style.display = 'inline-flex';
-        
-        console.log('✅ Section des positions Aave mise à jour avec les boutons d\'action');
+    // Récupérer les éléments
+    const positionsSection = document.getElementById('aavePositions');
+    const positionsList = document.getElementById('aavePositionsList');
+    
+    if (!positionsSection || !positionsList) {
+        console.error('❌ Éléments pour l\'affichage des positions Aave non trouvés');
+        return;
     }
-
-    // Fonction pour ajouter un dépôt manuellement
-    showAddDepositModal() {
-        // Créer le modal
-        const modal = document.createElement('div');
-        modal.className = 'modal';
-        modal.style.display = 'flex';
+    
+    // Vider et afficher la section
+    positionsList.innerHTML = '';
+    positionsSection.style.display = 'block';
+    
+    // Créer l'élément de position principal
+    const positionItem = document.createElement('div');
+    positionItem.className = 'aave-position-item';
+    
+    // En-tête avec les informations de base
+    const header = document.createElement('div');
+    header.className = 'position-header';
+    
+    // Information sur la position
+    const info = document.createElement('div');
+    info.className = 'position-info';
+    
+    const assetSpan = document.createElement('span');
+    assetSpan.className = 'asset';
+    assetSpan.textContent = 'USDC Supply';
+    
+    const amountSpan = document.createElement('span');
+    amountSpan.className = 'amount';
+    amountSpan.textContent = `${actualUSDCAmount} USDC`;
+    
+    info.appendChild(assetSpan);
+    info.appendChild(amountSpan);
+    
+    // Informations sur le rendement
+    const yieldInfo = document.createElement('div');
+    yieldInfo.className = 'position-yield';
+    
+    const apySpan = document.createElement('span');
+    apySpan.className = 'apr'; // Garder la classe CSS existante
+    apySpan.textContent = `${currentAPY.toFixed(2)}% APY`; // Changer APR en APY
+    
+    const pnlSpan = document.createElement('span');
+    pnlSpan.className = `pnl ${earnings >= 0 ? 'text-success' : 'text-danger'}`;
+    pnlSpan.textContent = `${earnings >= 0 ? '+' : ''}${earnings.toFixed(4)} USD (${earnings >= 0 ? '+' : ''}${earningsPercentage.toFixed(4)}%)`;
+    
+    yieldInfo.appendChild(apySpan);
+    yieldInfo.appendChild(pnlSpan);
+    
+    header.appendChild(info);
+    header.appendChild(yieldInfo);
+    
+    // Détails avec les valeurs actuelles et projections
+    const details = document.createElement('div');
+    details.className = 'position-details';
+    
+    // Fonction d'aide pour créer des éléments de détail
+    function createDetailItem(label, value, isSuccess = false) {
+        const detailItem = document.createElement('div');
+        detailItem.className = 'detail-item';
         
-        // Contenu du modal
-        const modalContent = document.createElement('div');
-        modalContent.className = 'modal-content';
-        modalContent.style.maxWidth = '500px';
-        modalContent.style.padding = '20px';
+        const labelSpan = document.createElement('span');
+        labelSpan.className = 'label';
+        labelSpan.textContent = label;
         
-        // Titre
-        const title = document.createElement('h3');
-        title.textContent = 'Ajouter un dépôt manuellement';
-        modalContent.appendChild(title);
+        const valueSpan = document.createElement('span');
+        valueSpan.className = isSuccess ? 'value text-success' : 'value';
+        valueSpan.textContent = value;
         
-        // Formulaire
-        const form = document.createElement('form');
-        form.onsubmit = (e) => {
-            e.preventDefault();
-            this.addManualDeposit(form);
-        };
+        detailItem.appendChild(labelSpan);
+        detailItem.appendChild(valueSpan);
         
-        // Date
-        const dateGroup = document.createElement('div');
-        dateGroup.className = 'form-group';
+        return detailItem;
+    }
+    
+    // Ajouter les détails
+    const initialDeposit = depositHistory.reduce((sum, entry) => sum + entry.amount, 0);
+    
+    details.appendChild(createDetailItem('Dépôt initial total:', `${initialDeposit.toFixed(6)} USDC`));
+    details.appendChild(createDetailItem('Valeur actuelle:', `${actualUSDCAmount} USDC`));
+    details.appendChild(createDetailItem(
+        'Gains accumulés:', 
+        `${earnings >= 0 ? '+' : ''}${earnings.toFixed(4)} USDC (${earnings >= 0 ? '+' : ''}${earningsPercentage.toFixed(4)}%)`,
+        earnings >= 0
+    ));
+    
+    // Projections basées sur l'APY actuel
+    details.appendChild(createDetailItem('Rendement journalier:', `+${projections.daily} USDC`, true));
+    details.appendChild(createDetailItem('Rendement mensuel:', `+${projections.monthly} USDC`, true));
+    details.appendChild(createDetailItem('Rendement annuel:', `+${projections.yearly} USDC`, true));
+    
+    // Boutons d'action
+    const actions = document.createElement('div');
+    actions.className = 'position-actions';
+    
+    // Bouton pour récupérer les rendements
+    const collectBtn = document.createElement('button');
+    collectBtn.className = 'action-btn collect-btn';
+    collectBtn.onclick = () => this.collectAaveRewards();
+    
+    const collectIcon = document.createElement('i');
+    collectIcon.className = 'fas fa-coins';
+    collectBtn.appendChild(collectIcon);
+    collectBtn.appendChild(document.createTextNode(' Récupérer les rendements'));
+    
+    // Bouton pour retirer le capital
+    const withdrawBtn = document.createElement('button');
+    withdrawBtn.className = 'action-btn withdraw-btn';
+    withdrawBtn.onclick = () => this.withdrawAavePosition();
+    
+    const withdrawIcon = document.createElement('i');
+    withdrawIcon.className = 'fas fa-wallet';
+    withdrawBtn.appendChild(withdrawIcon);
+    withdrawBtn.appendChild(document.createTextNode(' Retirer le capital'));
+    
+    // Lien pour voir sur Aave
+    const viewLink = document.createElement('a');
+    viewLink.href = 'https://app.aave.com/dashboard';
+    viewLink.target = '_blank';
+    viewLink.className = 'action-btn view-btn';
+    
+    const viewIcon = document.createElement('i');
+    viewIcon.className = 'fas fa-external-link-alt';
+    viewLink.appendChild(viewIcon);
+    viewLink.appendChild(document.createTextNode(' Voir sur Aave'));
+    
+    actions.appendChild(collectBtn);
+    actions.appendChild(withdrawBtn);
+    actions.appendChild(viewLink);
+    
+    // Assembler la section principale
+    positionItem.appendChild(header);
+    positionItem.appendChild(details);
+    positionItem.appendChild(actions);
+    
+    // Tableau d'historique des dépôts
+    const historySection = document.createElement('div');
+    historySection.className = 'deposit-history-section';
+    
+    const historyTitle = document.createElement('h4');
+    historyTitle.textContent = 'Historique des dépôts';
+    historySection.appendChild(historyTitle);
+    
+    // Créer le tableau d'historique
+    const historyTable = document.createElement('table');
+    historyTable.className = 'deposit-history-table';
+    
+    // En-tête du tableau
+    const thead = document.createElement('thead');
+    const headerRow = document.createElement('tr');
+    
+    ['Date', 'Asset', 'Montant', 'APY au dépôt', 'Transaction', 'Notes'].forEach(text => {
+        const th = document.createElement('th');
+        th.textContent = text;
+        headerRow.appendChild(th);
+    });
+    
+    thead.appendChild(headerRow);
+    historyTable.appendChild(thead);
+    
+    // Corps du tableau
+    const tbody = document.createElement('tbody');
+    
+    depositHistory.forEach(entry => {
+        const row = document.createElement('tr');
         
-        const dateLabel = document.createElement('label');
-        dateLabel.textContent = 'Date du dépôt:';
-        dateLabel.htmlFor = 'depositDate';
-        
-        const dateInput = document.createElement('input');
-        dateInput.type = 'datetime-local';
-        dateInput.id = 'depositDate';
-        dateInput.name = 'depositDate';
-        dateInput.required = true;
-        
-        // Définir la date par défaut à maintenant
-        const now = new Date();
-        const timezoneOffset = now.getTimezoneOffset() * 60000;
-        const localDate = new Date(now - timezoneOffset);
-        dateInput.value = localDate.toISOString().slice(0, 16);
-
-        dateGroup.appendChild(dateLabel);
-        dateGroup.appendChild(dateInput);
-        form.appendChild(dateGroup);
+        // Date formatée
+        const dateCell = document.createElement('td');
+        const date = new Date(entry.date);
+        dateCell.textContent = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        row.appendChild(dateCell);
         
         // Asset
-        const assetGroup = document.createElement('div');
-        assetGroup.className = 'form-group';
-        
-        const assetLabel = document.createElement('label');
-        assetLabel.textContent = 'Asset:';
-        assetLabel.htmlFor = 'depositAsset';
-        
-        const assetSelect = document.createElement('select');
-        assetSelect.id = 'depositAsset';
-        assetSelect.name = 'depositAsset';
-        assetSelect.required = true;
-        
-        // Options pour les assets
-        const assets = [
-            { value: 'USDC', label: 'USDC' },
-            { value: 'WETH', label: 'WETH' },
-            { value: 'WMATIC', label: 'WMATIC' },
-            { value: 'WBTC', label: 'WBTC' }
-        ];
-        
-        assets.forEach(asset => {
-            const option = document.createElement('option');
-            option.value = asset.value;
-            option.textContent = asset.label;
-            assetSelect.appendChild(option);
-        });
-        
-        assetGroup.appendChild(assetLabel);
-        assetGroup.appendChild(assetSelect);
-        form.appendChild(assetGroup);
+        const assetCell = document.createElement('td');
+        assetCell.textContent = entry.asset;
+        row.appendChild(assetCell);
         
         // Montant
-        const amountGroup = document.createElement('div');
-        amountGroup.className = 'form-group';
+        const amountCell = document.createElement('td');
+        amountCell.textContent = entry.amount.toFixed(6);
+        row.appendChild(amountCell);
         
-        const amountLabel = document.createElement('label');
-        amountLabel.textContent = 'Montant:';
-        amountLabel.htmlFor = 'depositAmount';
-        
-        const amountInput = document.createElement('input');
-        amountInput.type = 'number';
-        amountInput.id = 'depositAmount';
-        amountInput.name = 'depositAmount';
-        amountInput.step = '0.000001';
-        amountInput.min = '0.000001';
-        amountInput.required = true;
-        amountInput.placeholder = '0.000000';
-        
-        amountGroup.appendChild(amountLabel);
-        amountGroup.appendChild(amountInput);
-        form.appendChild(amountGroup);
-        
-        // APY
-        const apyGroup = document.createElement('div');
-        apyGroup.className = 'form-group';
-        
-        const apyLabel = document.createElement('label');
-        apyLabel.textContent = 'APY au moment du dépôt (%):';
-        apyLabel.htmlFor = 'depositAPY';
-        
-        const apyInput = document.createElement('input');
-        apyInput.type = 'number';
-        apyInput.id = 'depositAPY';
-        apyInput.name = 'depositAPY';
-        apyInput.step = '0.01';
-        apyInput.min = '0';
-        apyInput.placeholder = '3.71';
-        apyInput.value = '3.71'; // Valeur par défaut
-        
-        apyGroup.appendChild(apyLabel);
-        apyGroup.appendChild(apyInput);
-        form.appendChild(apyGroup);
+        // APY au moment du dépôt
+        const apyCell = document.createElement('td');
+        apyCell.textContent = entry.apy ? entry.apy.toFixed(2) + '%' : 'N/A';
+        row.appendChild(apyCell);
         
         // Hash de transaction
-        const txGroup = document.createElement('div');
-        txGroup.className = 'form-group';
-        
-        const txLabel = document.createElement('label');
-        txLabel.textContent = 'Hash de transaction (optionnel):';
-        txLabel.htmlFor = 'depositTxHash';
-        
-        const txInput = document.createElement('input');
-        txInput.type = 'text';
-        txInput.id = 'depositTxHash';
-        txInput.name = 'depositTxHash';
-        txInput.placeholder = '0x...';
-        
-        txGroup.appendChild(txLabel);
-        txGroup.appendChild(txInput);
-        form.appendChild(txGroup);
+        const txCell = document.createElement('td');
+        if (entry.txHash) {
+            const txLink = document.createElement('a');
+            txLink.href = `https://polygonscan.com/tx/${entry.txHash}`;
+            txLink.target = '_blank';
+            txLink.textContent = entry.txHash.substring(0, 8) + '...';
+            txCell.appendChild(txLink);
+        } else {
+            txCell.textContent = 'N/A';
+        }
+        row.appendChild(txCell);
         
         // Notes
-        const notesGroup = document.createElement('div');
-        notesGroup.className = 'form-group';
+        const notesCell = document.createElement('td');
+        notesCell.textContent = entry.notes || '';
+        row.appendChild(notesCell);
         
-        const notesLabel = document.createElement('label');
-        notesLabel.textContent = 'Notes (optionnel):';
-        notesLabel.htmlFor = 'depositNotes';
-        
-        const notesInput = document.createElement('textarea');
-        notesInput.id = 'depositNotes';
-        notesInput.name = 'depositNotes';
-        notesInput.placeholder = 'Notes supplémentaires...';
-        notesInput.rows = 3;
-        
-        notesGroup.appendChild(notesLabel);
-        notesGroup.appendChild(notesInput);
-        form.appendChild(notesGroup);
-        
-        // Boutons
-        const buttonGroup = document.createElement('div');
-        buttonGroup.className = 'button-group';
-        buttonGroup.style.display = 'flex';
-        buttonGroup.style.justifyContent = 'space-between';
-        buttonGroup.style.marginTop = '20px';
-        
-        const cancelBtn = document.createElement('button');
-        cancelBtn.type = 'button';
-        cancelBtn.className = 'strategy-btn secondary';
-        cancelBtn.textContent = 'Annuler';
-        cancelBtn.onclick = () => {
-            document.body.removeChild(modal);
-        };
-        
-        const submitBtn = document.createElement('button');
-        submitBtn.type = 'submit';
-        submitBtn.className = 'strategy-btn primary';
-        submitBtn.textContent = 'Ajouter';
-        
-        buttonGroup.appendChild(cancelBtn);
-        buttonGroup.appendChild(submitBtn);
-        form.appendChild(buttonGroup);
-        
-        modalContent.appendChild(form);
-        modal.appendChild(modalContent);
-        
-        // Ajouter le modal au document
-        document.body.appendChild(modal);
-        
-        // Fermer le modal si on clique en dehors
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) {
-                document.body.removeChild(modal);
-            }
-        });
-    }
-
-    // Fonction pour ajouter un dépôt manuellement
-    addManualDeposit(form) {
-        // Récupérer les valeurs du formulaire
-        const date = new Date(form.depositDate.value);
-        const asset = form.depositAsset.value;
-        const amount = parseFloat(form.depositAmount.value);
-        const apy = parseFloat(form.depositAPY.value);
-        const txHash = form.depositTxHash.value.trim();
-        const notes = form.depositNotes.value.trim();
-        
-        // Valider les données
-        if (isNaN(amount) || amount <= 0) {
-            this.showNotification('❌ Montant invalide', 'error');
-            return;
-        }
-        
-        if (isNaN(apy) || apy < 0) {
-            this.showNotification('❌ APY invalide', 'error');
-            return;
-        }
-        
-        // Créer l'entrée
-        const newEntry = {
-            id: Date.now(),
-            date: date.toISOString(),
-            asset,
-            amount,
-            apy,
-            txHash: txHash || '',
-            notes: notes || 'Ajouté manuellement'
-        };
-        
-        // Récupérer l'historique existant
-        let depositHistory = [];
-        try {
-            const savedHistory = localStorage.getItem('aaveDepositHistory');
-            if (savedHistory) {
-                depositHistory = JSON.parse(savedHistory);
-            }
-        } catch (error) {
-            console.error('❌ Erreur lors du chargement de l\'historique des dépôts:', error);
-            depositHistory = [];
-        }
-        
-        // Ajouter la nouvelle entrée
-        depositHistory.push(newEntry);
-        
-        // Sauvegarder l'historique mis à jour
-        localStorage.setItem('aaveDepositHistory', JSON.stringify(depositHistory));
-        
-        // Fermer le modal
-        const modal = document.querySelector('.modal');
-        if (modal) {
-            document.body.removeChild(modal);
-        }
-        
-        // Afficher un message de succès
-        this.showNotification(`✅ Dépôt de ${amount.toFixed(6)} ${asset} ajouté avec succès`, 'success');
-        
-        // Rafraîchir l'affichage des positions
-        this.loadAavePositions();
-    }
+        tbody.appendChild(row);
+    });
+    
+    historyTable.appendChild(tbody);
+    historySection.appendChild(historyTable);
+    
+    // Bouton pour ajouter un dépôt manuellement (pour les dépôts passés)
+    const addDepositBtn = document.createElement('button');
+    addDepositBtn.className = 'action-btn add-deposit-btn';
+    addDepositBtn.innerHTML = '<i class="fas fa-plus"></i> Ajouter un dépôt manuellement';
+    addDepositBtn.onclick = () => this.showAddDepositModal();
+    
+    historySection.appendChild(addDepositBtn);
+    
+    // Ajouter tout à la liste des positions
+    positionsList.appendChild(positionItem);
+    positionsList.appendChild(historySection);
+    
+    // Afficher le bouton de retrait dans la section principale
+    const withdrawMainBtn = document.getElementById('aaveWithdrawBtn');
+    if (withdrawMainBtn) withdrawMainBtn.style.display = 'inline-flex';
+    
+    console.log('✅ Section des positions Aave mise à jour avec les boutons d\'action');
+}
 
     // Fonction pour mettre à jour les positions Aave
     updateAavePositions() {
@@ -1980,182 +1720,176 @@ class YieldMaxApp {
 
     // Fonction pour récupérer les positions Aave réelles depuis la blockchain
     async loadAavePositions() {
-        console.log('📢 Fonction loadAavePositions() appelée');
+    console.log('📢 Fonction loadAavePositions() appelée');
 
-        if (!this.walletConnected) {
-            console.log('❌ Wallet non connecté');
-            this.showNotification('Veuillez connecter votre wallet', 'warning');
+    if (!this.walletConnected) {
+        console.log('❌ Wallet non connecté');
+        this.showNotification('Veuillez connecter votre wallet', 'warning');
+        return;
+    }
+
+    try {
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        
+        // Vérifier qu'on est sur Polygon
+        const network = await provider.getNetwork();
+        const currentChainId = Number(network.chainId);
+        console.log('🌐 Réseau actuel:', currentChainId, 'Polygon ID attendu:', POLYGON_CHAIN_ID);
+
+        if (currentChainId !== POLYGON_CHAIN_ID) {
+            console.log('⚠️ Mauvais réseau, attendu:', POLYGON_CHAIN_ID, 'actuel:', currentChainId);
+            this.showNotification('⚠️ Changez vers le réseau Polygon', 'warning');
             return;
         }
 
-        try {
-            const provider = new ethers.BrowserProvider(window.ethereum);
+        this.showNotification('🔄 Récupération des positions Aave...', 'info');
+        console.log('🔍 Recherche des positions Aave pour:', this.currentAccount);
+        
+        // ABI pour getUserAccountData
+        const AAVE_POOL_ABI = [
+            "function getUserAccountData(address user) external view returns (uint256 totalCollateralBase, uint256 totalDebtBase, uint256 availableBorrowsBase, uint256 currentLiquidationThreshold, uint256 ltv, uint256 healthFactor)"
+        ];
+        
+        // ABI pour récupérer le taux d'intérêt actuel (pour référence)
+        const AAVE_DATA_PROVIDER_ABI = [
+            "function getReserveData(address asset) external view returns (tuple(uint256 unbacked, uint256 accruedToTreasuryScaled, uint256 totalAToken, uint256 totalStableDebt, uint256 totalVariableDebt, uint256 liquidityRate, uint256 variableBorrowRate, uint256 stableBorrowRate, uint256 lastUpdateTimestamp, address aTokenAddress, address stableDebtTokenAddress, address variableDebtTokenAddress, address interestRateStrategyAddress, uint8 id))"
+        ];
+        
+        console.log('🔄 Adresse du Pool Aave V3:', AAVE_V3_POLYGON.POOL);
+        const aavePool = new ethers.Contract(AAVE_V3_POLYGON.POOL, AAVE_POOL_ABI, provider);
+        
+        // Récupérer les données du compte
+        console.log('📡 Appel à getUserAccountData pour:', this.currentAccount);
+        const accountData = await aavePool.getUserAccountData(this.currentAccount);
+        console.log('✅ Réponse reçue de getUserAccountData');
             
-            // Vérifier qu'on est sur Polygon
-            const network = await provider.getNetwork();
-            const currentChainId = Number(network.chainId);
-            console.log('🌐 Réseau actuel:', currentChainId, 'Polygon ID attendu:', POLYGON_CHAIN_ID);
-
-            if (currentChainId !== POLYGON_CHAIN_ID) {
-                console.log('⚠️ Mauvais réseau, attendu:', POLYGON_CHAIN_ID, 'actuel:', currentChainId);
-                this.showNotification('⚠️ Changez vers le réseau Polygon', 'warning');
-                return;
-            }
-
-            this.showNotification('🔄 Récupération des positions Aave...', 'info');
-            console.log('🔍 Recherche des positions Aave pour:', this.currentAccount);
-            
-            // ABI pour getUserAccountData
-            const AAVE_POOL_ABI = [
-                "function getUserAccountData(address user) external view returns (uint256 totalCollateralBase, uint256 totalDebtBase, uint256 availableBorrowsBase, uint256 currentLiquidationThreshold, uint256 ltv, uint256 healthFactor)"
-            ];
-            
-            // ABI pour récupérer le taux d'intérêt actuel (pour référence)
-            const AAVE_DATA_PROVIDER_ABI = [
-                "function getReserveData(address asset) external view returns (tuple(uint256 unbacked, uint256 accruedToTreasuryScaled, uint256 totalAToken, uint256 totalStableDebt, uint256 totalVariableDebt, uint256 liquidityRate, uint256 variableBorrowRate, uint256 stableBorrowRate, uint256 lastUpdateTimestamp, address aTokenAddress, address stableDebtTokenAddress, address variableDebtTokenAddress, address interestRateStrategyAddress, uint8 id))"
-            ];
-            
-            console.log('🔄 Adresse du Pool Aave V3:', AAVE_V3_POLYGON.POOL);
-            const aavePool = new ethers.Contract(AAVE_V3_POLYGON.POOL, AAVE_POOL_ABI, provider);
-            
-            // Récupérer les données du compte
-            console.log('📡 Appel à getUserAccountData pour:', this.currentAccount);
-            const accountData = await aavePool.getUserAccountData(this.currentAccount);
-            console.log('✅ Réponse reçue de getUserAccountData');
-                
-            console.log('📊 Données du compte Aave:', {
-                totalCollateralBase: accountData.totalCollateralBase.toString(),
-                totalDebtBase: accountData.totalDebtBase.toString(),
-                availableBorrowsBase: accountData.availableBorrowsBase.toString(),
-                healthFactor: accountData.healthFactor.toString()
-            });
-            
-            // Convertir en format lisible (base = 8 décimales pour le prix USD)
-            const totalCollateralUSD = ethers.formatUnits(accountData.totalCollateralBase, 8);
-            const totalDebtUSD = ethers.formatUnits(accountData.totalDebtBase, 8);
-            
-            console.log('💰 Valeurs formatées:', {
-                collateralUSD: totalCollateralUSD,
-                debtUSD: totalDebtUSD
-            });
-            
-            if (parseFloat(totalCollateralUSD) === 0) {
-                console.log('ℹ️ Aucun collatéral trouvé');
-                this.showNotification('ℹ️ Aucune position Aave trouvée', 'info');
-                return;
-            }
-            
-            // Récupérer l'historique des dépôts depuis le localStorage
-            let depositHistory = [];
-            try {
-                const savedHistory = localStorage.getItem('aaveDepositHistory');
-                if (savedHistory) {
-                    depositHistory = JSON.parse(savedHistory);
-                    console.log('📋 Historique des dépôts chargé:', depositHistory);
-                }
-            } catch (error) {
-                console.error('❌ Erreur lors du chargement de l\'historique des dépôts:', error);
-                // Initialiser un tableau vide en cas d'erreur
-                depositHistory = [];
-            }
-            
-            // Si aucun historique, créer une entrée par défaut basée sur la valeur actuelle
-            if (depositHistory.length === 0) {
-                console.log('ℹ️ Aucun historique trouvé, création d\'une entrée par défaut');
-                
-                // Supposer que c'est un dépôt USDC (le plus courant)
-                const defaultEntry = {
-                    id: Date.now(),
-                    date: new Date().toISOString(),
-                    asset: 'USDC',
-                    amount: 50.949, // Valeur par défaut basée sur les discussions précédentes
-                    apy: 3.71,      // APY par défaut pour USDC
-                    txHash: '',     // Hash de transaction inconnu
-                    notes: 'Position détectée automatiquement'
-                };
-                
-                depositHistory.push(defaultEntry);
-                
-                // Sauvegarder l'historique
-                localStorage.setItem('aaveDepositHistory', JSON.stringify(depositHistory));
-            }
-            
-            // Calculer le dépôt total initial et les gains
-            const totalInitialDeposit = depositHistory.reduce((sum, entry) => sum + entry.amount, 0);
-            const currentValue = parseFloat(totalCollateralUSD);
-            const earnings = currentValue - totalInitialDeposit;
-            const earningsPercentage = (earnings / totalInitialDeposit) * 100;
-            
-            // Essayer de récupérer l'APY actuel (utiliser une valeur par défaut en cas d'échec)
-            let currentAPY = 3.71; // Valeur par défaut
-            
-            try {
-                // Tenter de récupérer l'APY actuel pour USDC
-                const dataProviderAddress = "0x69FA688f1Dc47d4B5d8029D5a35FB7a548310654"; // UI Data Provider Aave V3 Polygon
-                const dataProvider = new ethers.Contract(dataProviderAddress, AAVE_DATA_PROVIDER_ABI, provider);
-                
-                // Récupérer les données pour USDC
-                const reserveData = await dataProvider.getReserveData(AAVE_V3_POLYGON.ASSETS.USDC.address);
-                
-                // liquidityRate est le taux de dépôt (APY) en RAY units (1e27)
-                if (reserveData && reserveData.liquidityRate) {
-                    // liquidityRate est le taux de dépôt (APY) en RAY units (1e27)
-                    const apyRaw = reserveData.liquidityRate;
-                    currentAPY = parseFloat(ethers.formatUnits(apyRaw, 27)) * 100;
-            
-                    console.log(`📊 Taux APY actuel pour USDC: ${currentAPY.toFixed(2)}%`);
-                } else {
-                    console.warn('⚠️ Données de réserve incomplètes, utilisation de l\'APY par défaut');
-                }
-                
-            } catch (error) {
-                console.warn('⚠️ Impossible de récupérer le taux APY actuel:', error);
-                // Continuer avec le taux par défaut
-            }
-            
-            // Calculer les projections de rendement basées sur l'APY actuel
-            const dailyRate = currentAPY / 365;
-            const dailyEarnings = (currentValue * dailyRate / 100).toFixed(6);
-            const monthlyEarnings = (currentValue * currentAPY / 100 / 12).toFixed(4);
-            const yearlyEarnings = (currentValue * currentAPY / 100).toFixed(2);
-            
-            // Mettre à jour l'interface avec les données
-            this.updateAavePositionsWithActions(
-                currentValue,
-                earnings,
-                earningsPercentage,
-                currentAPY,
-                currentValue.toFixed(6),
-                {
-                    daily: dailyEarnings,
-                    monthly: monthlyEarnings,
-                    yearly: yearlyEarnings
-                },
-                depositHistory
-            );
-            
-            // Afficher un message de succès
-            this.showNotification(`✅ Position Aave récupérée ($${currentValue.toFixed(2)} USD)`, 'success');
-            console.log(`✅ Position Aave trouvée: $${currentValue.toFixed(2)} USD, Gains: $${earnings.toFixed(4)} (${earningsPercentage.toFixed(4)}%)`);
-            
-        } catch (error) {
-            console.error('❌ Erreur lors de la récupération des positions Aave:', error);
-            console.error('Message d\'erreur:', error.message);
-            
-            // Message d'erreur adapté selon le type d'erreur
-            let userMessage = 'Erreur lors de la récupération des positions';
-            
-            if (error.message?.includes('user rejected') || error.code === 4001) {
-                userMessage = 'Transaction rejetée par l\'utilisateur';
-            } else if (error.message?.includes('network') || error.message?.includes('chainId')) {
-                userMessage = 'Erreur réseau. Vérifiez que vous êtes sur Polygon';
-            } else if (error.message?.includes('contract') || error.message?.includes('Pool')) {
-                userMessage = 'Erreur de contrat Aave. Essayez à nouveau plus tard';
-            }
-            
-            this.showNotification(`❌ ${userMessage}`, 'error');
+        console.log('📊 Données du compte Aave:', {
+            totalCollateralBase: accountData.totalCollateralBase.toString(),
+            totalDebtBase: accountData.totalDebtBase.toString(),
+            availableBorrowsBase: accountData.availableBorrowsBase.toString(),
+            healthFactor: accountData.healthFactor.toString()
+        });
+        
+        // Convertir en format lisible (base = 8 décimales pour le prix USD)
+        const totalCollateralUSD = ethers.formatUnits(accountData.totalCollateralBase, 8);
+        const totalDebtUSD = ethers.formatUnits(accountData.totalDebtBase, 8);
+        
+        console.log('💰 Valeurs formatées:', {
+            collateralUSD: totalCollateralUSD,
+            debtUSD: totalDebtUSD
+        });
+        
+        if (parseFloat(totalCollateralUSD) === 0) {
+            console.log('ℹ️ Aucun collatéral trouvé');
+            this.showNotification('ℹ️ Aucune position Aave trouvée', 'info');
+            return;
         }
+        
+        // Récupérer l'historique des dépôts depuis le localStorage
+        let depositHistory = [];
+        try {
+            const savedHistory = localStorage.getItem('aaveDepositHistory');
+            if (savedHistory) {
+                depositHistory = JSON.parse(savedHistory);
+                console.log('📋 Historique des dépôts chargé:', depositHistory);
+            }
+        } catch (error) {
+            console.error('❌ Erreur lors du chargement de l\'historique des dépôts:', error);
+            // Initialiser un tableau vide en cas d'erreur
+            depositHistory = [];
+        }
+        
+        // Si aucun historique, créer une entrée par défaut basée sur la valeur actuelle
+        if (depositHistory.length === 0) {
+            console.log('ℹ️ Aucun historique trouvé, création d\'une entrée par défaut');
+            
+            // Supposer que c'est un dépôt USDC (le plus courant)
+            const defaultEntry = {
+                id: Date.now(),
+                date: new Date().toISOString(),
+                asset: 'USDC',
+                amount: 50.949, // Valeur par défaut basée sur les discussions précédentes
+                apy: 3.71,      // APY par défaut pour USDC
+                txHash: '',     // Hash de transaction inconnu
+                notes: 'Position détectée automatiquement'
+            };
+            
+            depositHistory.push(defaultEntry);
+            
+            // Sauvegarder l'historique
+            localStorage.setItem('aaveDepositHistory', JSON.stringify(depositHistory));
+        }
+        
+        // Calculer le dépôt total initial et les gains
+        const totalInitialDeposit = depositHistory.reduce((sum, entry) => sum + entry.amount, 0);
+        const currentValue = parseFloat(totalCollateralUSD);
+        const earnings = currentValue - totalInitialDeposit;
+        const earningsPercentage = (earnings / totalInitialDeposit) * 100;
+        
+        // Essayer de récupérer l'APY actuel (utiliser une valeur par défaut en cas d'échec)
+        let currentAPY = 3.71; // Valeur par défaut
+        
+        try {
+            // Tenter de récupérer l'APY actuel pour USDC
+            const dataProviderAddress = "0x69FA688f1Dc47d4B5d8029D5a35FB7a548310654"; // UI Data Provider Aave V3 Polygon
+            const dataProvider = new ethers.Contract(dataProviderAddress, AAVE_DATA_PROVIDER_ABI, provider);
+            
+            // Récupérer les données pour USDC
+            const reserveData = await dataProvider.getReserveData(AAVE_V3_POLYGON.ASSETS.USDC.address);
+            
+            // liquidityRate est le taux de dépôt (APY) en RAY units (1e27)
+            const apyRaw = reserveData.liquidityRate;
+            currentAPY = parseFloat(ethers.formatUnits(apyRaw, 27)) * 100;
+            
+            console.log(`📊 Taux APY actuel pour USDC: ${currentAPY.toFixed(2)}%`);
+        } catch (error) {
+            console.warn('⚠️ Impossible de récupérer le taux APY actuel:', error);
+            // Continuer avec le taux par défaut
+        }
+        
+        // Calculer les projections de rendement basées sur l'APY actuel
+        const dailyRate = currentAPY / 365;
+        const dailyEarnings = (currentValue * dailyRate / 100).toFixed(6);
+        const monthlyEarnings = (currentValue * currentAPY / 100 / 12).toFixed(4);
+        const yearlyEarnings = (currentValue * currentAPY / 100).toFixed(2);
+        
+        // Mettre à jour l'interface avec les données
+        this.updateAavePositionsWithActions(
+            currentValue,
+            earnings,
+            earningsPercentage,
+            currentAPY,
+            currentValue.toFixed(6),
+            {
+                daily: dailyEarnings,
+                monthly: monthlyEarnings,
+                yearly: yearlyEarnings
+            },
+            depositHistory
+        );
+        
+        // Afficher un message de succès
+        this.showNotification(`✅ Position Aave récupérée ($${currentValue.toFixed(2)} USD)`, 'success');
+        console.log(`✅ Position Aave trouvée: $${currentValue.toFixed(2)} USD, Gains: $${earnings.toFixed(4)} (${earningsPercentage.toFixed(4)}%)`);
+        
+    } catch (error) {
+        console.error('❌ Erreur lors de la récupération des positions Aave:', error);
+        console.error('Message d\'erreur:', error.message);
+        
+        // Message d'erreur adapté selon le type d'erreur
+        let userMessage = 'Erreur lors de la récupération des positions';
+        
+        if (error.message?.includes('user rejected') || error.code === 4001) {
+            userMessage = 'Transaction rejetée par l\'utilisateur';
+        } else if (error.message?.includes('network') || error.message?.includes('chainId')) {
+            userMessage = 'Erreur réseau. Vérifiez que vous êtes sur Polygon';
+        } else if (error.message?.includes('contract') || error.message?.includes('Pool')) {
+            userMessage = 'Erreur de contrat Aave. Essayez à nouveau plus tard';
+        }
+        
+        this.showNotification(`❌ ${userMessage}`, 'error');
     }
+}
 
     // Fonction pour actualiser toutes les données
     async refreshAllData() {
