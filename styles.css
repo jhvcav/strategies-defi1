@@ -2806,8 +2806,10 @@ select:focus {
 /* Badge de statut */
 .position-status {
     position: absolute;
-    top: var(--space-md);
-    right: var(--space-md);
+    top: var(--space-sm);
+    right: var(--space-sm);
+    z-index: 10; /* Au-dessus des autres éléments */
+    pointer-events: none; /* N'interfère pas avec les clics */
     background: rgba(34, 197, 94, 0.15);
     border: 1px solid rgba(34, 197, 94, 0.3);
     color: var(--success);
