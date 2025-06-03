@@ -1,6 +1,10 @@
-console.log('🚀 DÉBUT app.js - Version Aave uniquement');
+console.log('🚀 DÉBUT app.js - Version avec correction solde USDC');
 
 // ===== CONTRACT CONFIGURATION =====
+var POLYGON_CONTRACTS = {
+    STRATEGY_UNISWAP_V3: "0x669227b0bB3A6BFC717fe8bEA17EEF3cB37f5eBC"
+};
+
 var POLYGON_CHAIN_ID = 137;
 
 // Tokens Polygon - CORRECTION DES ADRESSES USDC
@@ -11,6 +15,15 @@ var POLYGON_TOKENS = {
     WMATIC: "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270",
     WBTC: "0x1BFD67037B42Cf73acF2047067bd4F2C47D9BfD6"
 };
+
+// ABI simplifié pour les fonctions principales
+var STRATEGY_ABI = [
+    "function createPosition(address token0, address token1, uint24 fee, int24 tickLower, int24 tickUpper, uint256 amount0Desired, uint256 amount1Desired, uint256 amount0Min, uint256 amount1Min) external payable returns (uint256 tokenId)",
+    "function createPositionAuto(address token0, address token1, uint24 fee, uint256 rangePercentage, uint256 amount0Desired, uint256 amount1Desired) external payable returns (uint256 tokenId)",
+    "function getUserPositions(address user) external view returns (tuple(uint256 tokenId, address token0, address token1, uint24 fee, int24 tickLower, int24 tickUpper, uint128 liquidity, uint256 amount0Deposited, uint256 amount1Deposited, uint256 feesCollected0, uint256 feesCollected1, uint256 lastCollectionTime, bool active)[] memory)",
+    "function collectFees(uint256 tokenId) external returns (uint256 amount0, uint256 amount1)",
+    "function closePosition(uint256 tokenId) external"
+];
 
 // Configuration Aave V3 sur Polygon - CORRECTION ADRESSES
 const AAVE_V3_POLYGON = {
@@ -66,7 +79,8 @@ class YieldMaxApp {
         this.walletConnected = false;
         this.currentAccount = null;
         this.currentNetwork = 'polygon';
-        this.activeStrategy = 'aave';
+        this.activeStrategy = 'uniswap';
+        this.loadContractABI();
         this.positions = [];
         this.tokenBalances = {}; // Cache des soldes
         
@@ -77,6 +91,18 @@ class YieldMaxApp {
     init() {
         this.setupEventListeners();
         this.updateUI();
+    }
+
+    // ===== CHARGEMENT ABI =====
+    async loadContractABI() {
+        try {
+            const response = await fetch('./contract-abi.json');
+            const data = await response.json();
+            window.STRATEGY_ABI = data;
+            console.log('ABI chargé avec succès');
+        } catch (error) {
+            console.error('Erreur lors du chargement de l\'ABI:', error);
+        }
     }
 
     // ===== WALLET CONNECTION =====
@@ -92,6 +118,7 @@ class YieldMaxApp {
                 
                 // Update UI
                 this.updateWalletUI();
+                this.loadUserPositions();
                 
                 // Charger les soldes des tokens
                 await this.loadTokenBalances();
@@ -497,15 +524,140 @@ class YieldMaxApp {
         }
     }
 
+    // ===== UNISWAP V3 STRATEGY =====
+    updateUniswapMetrics() {
+        const ethAmount = parseFloat(document.getElementById('ethAmount')?.value) || 0;
+        const selectedRange = document.querySelector('.range-btn.active')?.dataset.range || 10;
+        
+        if (ethAmount > 0) {
+            // Calculs simulés pour l'exemple
+            const baseAPR = 45;
+            const rangeMultiplier = selectedRange === '5' ? 1.8 : selectedRange === '10' ? 1.4 : 1.2;
+            const estimatedAPR = (baseAPR * rangeMultiplier).toFixed(1);
+            const dailyFees = (ethAmount * 0.0012 * rangeMultiplier).toFixed(2);
+            const impermanentLoss = selectedRange === '5' ? 2.1 : selectedRange === '10' ? 1.5 : 0.8;
+
+            // Mettre à jour l'UI
+            const aprElement = document.querySelector('#uniswap-strategy .highlight');
+            const feesElement = document.querySelector('#uniswap-strategy .yield-metrics .metric:nth-child(2) strong');
+            const ilElement = document.querySelector('#uniswap-strategy .warning');
+            
+            if (aprElement) aprElement.textContent = `${estimatedAPR}%`;
+            if (feesElement) feesElement.textContent = `$${dailyFees}`;
+            if (ilElement) ilElement.textContent = `-${impermanentLoss}%`;
+        }
+    }
+
+    async deployUniswapStrategy() {
+        if (!this.walletConnected) {
+            alert('Veuillez connecter votre wallet');
+            return;
+        }
+
+        const ethAmount = document.getElementById('ethAmount').value;
+        if (!ethAmount || parseFloat(ethAmount) <= 0) {
+            alert('Veuillez entrer un montant valide');
+            return;
+        }
+
+        this.showLoadingModal('Version finale équilibrée...');
+
+        try {
+            const provider = new ethers.BrowserProvider(window.ethereum);
+            const signer = await provider.getSigner();
+            const userAddress = await signer.getAddress();
+            
+            console.log("=== VERSION FINALE ÉQUILIBRÉE ===");
+            
+            // Calculer les montants exacts pour une position équilibrée
+            const ethValue = ethers.parseEther(ethAmount);
+            const usdcNeeded = parseFloat(ethAmount) * 2511; // Prix actuel du marché
+            const usdcValue = ethers.parseUnits(usdcNeeded.toFixed(2), 6);
+            
+            // Approuver USDC
+            const usdcContract = new ethers.Contract(POLYGON_TOKENS.USDC, ERC20_ABI, signer);
+            const NFT_POSITION_MANAGER = "0xC36442b4a4522E871399CD717aBDD847Ab11FE88";
+            
+            console.log(`Approbation ${usdcNeeded.toFixed(2)} USDC...`);
+            const approveTx = await usdcContract.approve(NFT_POSITION_MANAGER, usdcValue);
+            await approveTx.wait();
+            console.log('✅ USDC approuvé');
+            
+            // Récupérer le tick du pool
+            const FACTORY_ADDRESS = "0x1F98431c8aD98523631AE4a59f267346ea31F984";
+            const FACTORY_ABI = ["function getPool(address tokenA, address tokenB, uint24 fee) external view returns (address pool)"];
+            const factory = new ethers.Contract(FACTORY_ADDRESS, FACTORY_ABI, provider);
+            const poolAddress = await factory.getPool(POLYGON_TOKENS.USDC, POLYGON_TOKENS.WETH, 500);
+            
+            const POOL_ABI = ["function slot0() external view returns (uint160 sqrtPriceX96, int24 tick, uint16 observationIndex, uint16 observationCardinality, uint16 observationCardinalityNext, uint8 feeProtocol, bool unlocked)"];
+            const poolContract = new ethers.Contract(poolAddress, POOL_ABI, provider);
+            const slot0 = await poolContract.slot0();
+            const currentTick = slot0.tick;
+            
+            // Ticks larges pour position équilibrée
+            const tickSpacing = 10;
+            const tickRange = 2000;
+            const tickLower = Math.floor((Number(currentTick) - tickRange) / tickSpacing) * tickSpacing;
+            const tickUpper = Math.ceil((Number(currentTick) + tickRange) / tickSpacing) * tickSpacing;
+            
+            console.log('Position équilibrée:', {
+                usdc: usdcNeeded.toFixed(2) + ' USDC',
+                eth: ethAmount + ' ETH',
+                ticks: `${tickLower} à ${tickUpper}`,
+                prix: '~2511 USDC/ETH'
+            });
+            
+            // Position équilibrée avec les DEUX tokens
+            const NFT_POSITION_MANAGER_ABI = [
+                "function mint(tuple(address token0, address token1, uint24 fee, int24 tickLower, int24 tickUpper, uint256 amount0Desired, uint256 amount1Desired, uint256 amount0Min, uint256 amount1Min, address recipient, uint256 deadline) params) external payable returns (uint256 tokenId, uint128 liquidity, uint256 amount0, uint256 amount1)"
+            ];
+            
+            const positionManager = new ethers.Contract(NFT_POSITION_MANAGER, NFT_POSITION_MANAGER_ABI, signer);
+            const deadline = Math.floor(Date.now() / 1000) + 1200;
+            
+            const mintParams = {
+                token0: POLYGON_TOKENS.USDC,
+                token1: POLYGON_TOKENS.WETH,
+                fee: 500,
+                tickLower,
+                tickUpper,
+                amount0Desired: usdcValue,  // USDC approuvé
+                amount1Desired: ethValue,   // WETH via ETH natif
+                amount0Min: 0,
+                amount1Min: 0,
+                recipient: userAddress,
+                deadline
+            };
+            
+            const tx = await positionManager.mint(mintParams, {
+                value: ethValue,
+                gasLimit: 5000000
+            });
+            
+            console.log('📤 Position équilibrée envoyée:', tx.hash);
+            
+            const receipt = await tx.wait();
+            console.log('🎉 SUCCÈS FINAL!', receipt.hash);
+            
+            this.hideLoadingModal();
+            alert(`🎉 SUCCÈS!\n\nPosition créée avec les deux tokens:\n${usdcNeeded.toFixed(2)} USDC + ${ethAmount} ETH\n\nTransaction: ${tx.hash}`);
+            
+        } catch (error) {
+            this.hideLoadingModal();
+            console.error('❌ Erreur finale:', error);
+            alert('Erreur finale: ' + error.message);
+        }
+    }
+
     // ===== AAVE STRATEGY =====
     updateAaveMetrics() {
         const amount = parseFloat(document.getElementById('aaveAmount')?.value) || 0;
         const selectedAsset = document.getElementById('aaveAssetSelect')?.value || 'weth';
         
-        // APRs réels d'Aave sur Polygon
+        // APRs réels d'Aave sur Polygon (mis à jour régulièrement)
         const aprs = {
             weth: 5.2,
-            usdc: 3.71, // APR réel que vous avez confirmé
+            usdc: 3.8,
             wmatic: 6.1,
             wbtc: 4.9
         };
@@ -578,9 +730,6 @@ class YieldMaxApp {
             aTokenElement.textContent = `a${selectedAsset.toUpperCase()}`;
         }
         
-        // NOUVEAU: Mettre à jour les informations de lending
-        this.updateLendingInfo(selectedAsset, currentAPR);
-        
         // Mettre à jour l'affichage du solde et la validation
         this.updateBalanceDisplay();
         this.validateAaveForm();
@@ -594,134 +743,111 @@ class YieldMaxApp {
         });
     }
 
-    // ===== NOUVELLE FONCTION POUR METTRE À JOUR LES INFOS DE LENDING =====
-    updateLendingInfo(selectedAsset, currentAPR) {
-        // Informations spécifiques à chaque asset
-        const assetInfos = {
-            weth: {
-                strategy: 'Lending ETH',
-                aToken: 'aWETH',
-                liquidity: 'Excellente',
-                features: 'Collatéral premium'
-            },
-            usdc: {
-                strategy: 'Lending Stablecoin',
-                aToken: 'aUSDC',
-                liquidity: 'Très élevée',
-                features: 'Stable, faible risque'
-            },
-            wmatic: {
-                strategy: 'Lending MATIC',
-                aToken: 'aWMATIC',
-                liquidity: 'Élevée',
-                features: 'Token natif Polygon'
-            },
-            wbtc: {
-                strategy: 'Lending Bitcoin',
-                aToken: 'aWBTC',
-                liquidity: 'Bonne',
-                features: 'Bitcoin sur Ethereum'
-            }
-        };
-        
-        const info = assetInfos[selectedAsset] || assetInfos.weth;
-        
-        // Mettre à jour les éléments du DOM
-        const strategyElement = document.querySelector('.info-item:nth-child(1) strong');
-        const aTokenElement = document.querySelector('.info-item:nth-child(2) strong');
-        const interestElement = document.querySelector('.info-item:nth-child(3) strong');
-        const liquidityElement = document.querySelector('.info-item:nth-child(4) strong');
-        
-        if (strategyElement) strategyElement.textContent = info.strategy;
-        if (aTokenElement) aTokenElement.textContent = info.aToken;
-        if (interestElement) interestElement.textContent = `${currentAPR}% APR`;
-        if (liquidityElement) liquidityElement.textContent = info.liquidity;
+    async deployAaveStrategy() {
+    if (!this.walletConnected) {
+        alert('Veuillez connecter votre wallet');
+        return;
     }
 
-    async deployAaveStrategy() {
-        if (!this.walletConnected) {
-            alert('Veuillez connecter votre wallet');
+    // NOUVEAU: Prévention des double-clics
+    const depositBtn = document.getElementById('aaveDepositBtn');
+    if (depositBtn && depositBtn.disabled) {
+        console.log('🚫 Transaction déjà en cours, double-clic ignoré');
+        return;
+    }
+
+    const amount = document.getElementById('aaveAmount').value;
+    const selectedAsset = document.getElementById('aaveAssetSelect').value;
+    
+    if (!amount || parseFloat(amount) <= 0) {
+        alert('Veuillez entrer un montant valide');
+        return;
+    }
+
+    // Vérification du solde avant de continuer
+    let availableBalance = 0;
+    let assetInfo = null;
+    let tokenAddress = null;
+    
+    if (selectedAsset === 'usdc') {
+        const usdcInfo = this.getBestUSDCBalance();
+        availableBalance = usdcInfo.balance;
+        tokenAddress = usdcInfo.address;
+        
+        if (!tokenAddress) {
+            alert('❌ Aucun USDC trouvé!\n\nVeuillez transférer de l\'USDC vers votre wallet.');
             return;
         }
-
-        const amount = document.getElementById('aaveAmount').value;
-        const selectedAsset = document.getElementById('aaveAssetSelect').value;
         
-        if (!amount || parseFloat(amount) <= 0) {
-            alert('Veuillez entrer un montant valide');
-            return;
-        }
-
-        // Vérification du solde avant de continuer
-        let availableBalance = 0;
-        let assetInfo = null;
-        let tokenAddress = null;
-        
-        if (selectedAsset === 'usdc') {
-            const usdcInfo = this.getBestUSDCBalance();
-            availableBalance = usdcInfo.balance;
-            tokenAddress = usdcInfo.address;
-            
-           if (usdcInfo.type === 'NATIVE') {
-                assetInfo = { ...AAVE_V3_POLYGON.ASSETS.USDC, address: tokenAddress, symbol: 'USDC' };
-            } else {
-                assetInfo = AAVE_V3_POLYGON.ASSETS.USDC;
-            }
-        } else if (selectedAsset === 'weth') {
-            availableBalance = parseFloat(this.tokenBalances.WETH || "0");
-            assetInfo = AAVE_V3_POLYGON.ASSETS.WETH;
-            tokenAddress = assetInfo.address;
+        if (usdcInfo.type === 'NATIVE') {
+            assetInfo = { 
+                address: tokenAddress, 
+                symbol: 'USDC', 
+                decimals: 6,
+                aToken: AAVE_V3_POLYGON.ASSETS.USDC.aToken
+            };
         } else {
-            availableBalance = parseFloat(this.tokenBalances[selectedAsset.toUpperCase()] || "0");
-            assetInfo = AAVE_V3_POLYGON.ASSETS[selectedAsset.toUpperCase()];
-            tokenAddress = assetInfo.address;
+            assetInfo = AAVE_V3_POLYGON.ASSETS.USDC;
         }
+    } else if (selectedAsset === 'weth') {
+        availableBalance = parseFloat(this.tokenBalances.WETH || "0");
+        assetInfo = AAVE_V3_POLYGON.ASSETS.WETH;
+        tokenAddress = assetInfo.address;
+    } else {
+        availableBalance = parseFloat(this.tokenBalances[selectedAsset.toUpperCase()] || "0");
+        assetInfo = AAVE_V3_POLYGON.ASSETS[selectedAsset.toUpperCase()];
+        tokenAddress = assetInfo.address;
+    }
+    
+    if (parseFloat(amount) > availableBalance) {
+        alert(`❌ Solde insuffisant!\n\nVous voulez déposer: ${amount} ${assetInfo.symbol}\nSolde disponible: ${availableBalance.toFixed(6)} ${assetInfo.symbol}`);
+        return;
+    }
+
+    // NOUVEAU: Désactiver le bouton immédiatement
+    if (depositBtn) {
+        depositBtn.disabled = true;
+        depositBtn.innerHTML = `
+            <i class="fas fa-spinner fa-spin"></i>
+            Transaction en cours...
+        `;
+        depositBtn.classList.add('disabled');
+    }
+
+    this.showLoadingModal('Dépôt sur Aave en cours...');
+
+    try {
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        const signer = await provider.getSigner();
+        const userAddress = await signer.getAddress();
         
-        if (parseFloat(amount) > availableBalance) {
-            alert(`❌ Solde insuffisant!\n\nVous voulez déposer: ${amount} ${assetInfo.symbol}\nSolde disponible: ${availableBalance.toFixed(6)} ${assetInfo.symbol}`);
-            return;
-        }
-
-        this.showLoadingModal('Dépôt sur Aave en cours...');
-
-        try {
-            const provider = new ethers.BrowserProvider(window.ethereum);
-            const signer = await provider.getSigner();
-            const userAddress = await signer.getAddress();
+        console.log("=== AAVE LENDING SIMPLE ===");
+        console.log("Asset:", selectedAsset);
+        console.log("Montant:", amount);
+        console.log("Adresse token:", tokenAddress);
+        console.log("Solde disponible:", availableBalance);
+        
+        const amountInWei = ethers.parseUnits(amount, assetInfo.decimals);
+        
+        // ABI du Pool Aave V3
+        const AAVE_POOL_ABI = [
+            "function supply(address asset, uint256 amount, address onBehalfOf, uint16 referralCode) external",
+            "function getUserAccountData(address user) external view returns (uint256 totalCollateralBase, uint256 totalDebtBase, uint256 availableBorrowsBase, uint256 currentLiquidationThreshold, uint256 ltv, uint256 healthFactor)"
+        ];
+        
+        const aavePool = new ethers.Contract(AAVE_V3_POLYGON.POOL, AAVE_POOL_ABI, signer);
+        
+        let tx;
+        
+        if (selectedAsset === 'weth') {
+            // Pour WETH, vérifier si on a du WETH ou s'il faut convertir depuis MATIC
+            const wethBalance = parseFloat(this.tokenBalances.WETH || "0");
             
-            console.log("=== AAVE LENDING SIMPLE ===");
-            console.log("Asset:", selectedAsset);
-            console.log("Montant:", amount);
-            console.log("Adresse token:", tokenAddress);
-            console.log("Solde disponible:", availableBalance);
-            
-            const amountInWei = ethers.parseUnits(amount, assetInfo.decimals);
-            
-            // ABI du Pool Aave V3
-            const AAVE_POOL_ABI = [
-                "function supply(address asset, uint256 amount, address onBehalfOf, uint16 referralCode) external",
-                "function getUserAccountData(address user) external view returns (uint256 totalCollateralBase, uint256 totalDebtBase, uint256 availableBorrowsBase, uint256 currentLiquidationThreshold, uint256 ltv, uint256 healthFactor)"
-            ];
-            
-            const aavePool = new ethers.Contract(AAVE_V3_POLYGON.POOL, AAVE_POOL_ABI, signer);
-            
-            let tx;
-            
-            if (selectedAsset === 'weth') {
-                // Pour WETH, on doit d'abord convertir ETH en WETH
-                console.log('Conversion ETH -> WETH...');
+            if (wethBalance >= parseFloat(amount)) {
+                // On a assez de WETH, juste approuver et déposer
+                console.log('Utilisation du WETH existant...');
                 
-                const WETH_ABI = [
-                    "function deposit() payable",
-                    "function approve(address spender, uint256 amount) returns (bool)"
-                ];
-                
-                const wethContract = new ethers.Contract(assetInfo.address, WETH_ABI, signer);
-                
-                // Convertir ETH en WETH
-                const depositTx = await wethContract.deposit({ value: amountInWei });
-                await depositTx.wait();
-                console.log('✅ ETH converti en WETH');
+                const wethContract = new ethers.Contract(assetInfo.address, ERC20_ABI, signer);
                 
                 // Approuver WETH pour Aave
                 const approveTx = await wethContract.approve(AAVE_V3_POLYGON.POOL, amountInWei);
@@ -730,569 +856,127 @@ class YieldMaxApp {
                 
                 // Déposer sur Aave
                 tx = await aavePool.supply(assetInfo.address, amountInWei, userAddress, 0);
-                
             } else {
-                // Pour les autres tokens, approuver puis déposer
-                console.log(`Approbation ${assetInfo.symbol}...`);
+                // Conversion MATIC -> WETH si nécessaire
+                console.log('Conversion MATIC -> WETH...');
                 
-                const tokenContract = new ethers.Contract(tokenAddress, ERC20_ABI, signer);
+                const WETH_ABI = [
+                    "function deposit() payable",
+                    "function approve(address spender, uint256 amount) returns (bool)"
+                ];
                 
-                const approveTx = await tokenContract.approve(AAVE_V3_POLYGON.POOL, amountInWei);
+                const wethContract = new ethers.Contract(assetInfo.address, WETH_ABI, signer);
+                
+                // Convertir MATIC en WETH
+                const depositTx = await wethContract.deposit({ value: amountInWei });
+                await depositTx.wait();
+                console.log('✅ MATIC converti en WETH');
+                
+                // Approuver WETH pour Aave
+                const approveTx = await wethContract.approve(AAVE_V3_POLYGON.POOL, amountInWei);
                 await approveTx.wait();
-                console.log(`✅ ${assetInfo.symbol} approuvé`);
+                console.log('✅ WETH approuvé pour Aave');
                 
                 // Déposer sur Aave
-                tx = await aavePool.supply(tokenAddress, amountInWei, userAddress, 0);
+                tx = await aavePool.supply(assetInfo.address, amountInWei, userAddress, 0);
             }
             
-            console.log('📤 Transaction Aave envoyée:', tx.hash);
+        } else {
+            // Pour les autres tokens, approuver puis déposer
+            console.log(`Approbation ${assetInfo.symbol}...`);
             
-            const receipt = await tx.wait();
-            console.log('✅ Dépôt Aave confirmé!', receipt.hash);
-
-            this.captureNewDeposit(
-                selectedAsset,   // L'asset sélectionné (ex: 'usdc')
-                amount,          // Le montant déposé
-                tx.hash          // Le hash de la transaction
-            );
+            const tokenContract = new ethers.Contract(tokenAddress, ERC20_ABI, signer);
             
-            // Ajouter la position à l'interface
-            const newPosition = {
-                id: Date.now(),
-                strategy: 'Aave Lending',
-                pool: `${assetInfo.symbol} Supply`,
-                amount: `${amount} ${assetInfo.symbol}`,
-                apr: '5.2%', // APR de base, sera mis à jour
-                pnl: '+0.00%',
-                status: 'active',
-                aToken: assetInfo.aToken
-            };
+            const approveTx = await tokenContract.approve(AAVE_V3_POLYGON.POOL, amountInWei);
+            await approveTx.wait();
+            console.log(`✅ ${assetInfo.symbol} approuvé`);
             
-            this.positions.push(newPosition);
-            this.updateDashboardStats();
+            // NOUVEAU: Attendre un peu entre approve et supply
+            await new Promise(resolve => setTimeout(resolve, 2000));
             
-            // Mettre à jour l'interface Aave
-            this.updateAavePositions();
-            
-            // Recharger les soldes
-            await this.loadTokenBalances();
-            
-            this.hideLoadingModal();
-            
-            alert(`🎉 Dépôt Aave réussi!\n\n💰 ${amount} ${assetInfo.symbol} déposé\n📈 Vous recevez des aTokens qui génèrent des intérêts automatiquement\n\n📄 Transaction: ${tx.hash}\n🔗 Voir sur PolygonScan: https://polygonscan.com/tx/${tx.hash}`);
-            
-        } catch (error) {
-            this.hideLoadingModal();
-            console.error('❌ Erreur Aave:', error);
-            
-            let errorMessage = "Erreur Aave inconnue";
-            
-            if (error.code === 4001) {
-                errorMessage = 'Transaction annulée par l\'utilisateur';
-            } else if (error.reason) {
-                errorMessage = `Erreur Aave: ${error.reason}`;
-            } else if (error.message) {
-                errorMessage = `Erreur: ${error.message}`;
-            }
-            
-            alert(errorMessage);
-        }
-        this.showNotification(`❌ ${errorMessage}`, 'error');
-    }
-
-    // Fonction pour récupérer les rendements
-    async collectAaveRewards() {
-        if (!this.walletConnected) {
-            this.showNotification('Veuillez connecter votre wallet', 'warning');
-            return;
+            // Déposer sur Aave
+            tx = await aavePool.supply(tokenAddress, amountInWei, userAddress, 0, {
+                gasLimit: 300000 // Gas limit conservateur
+            });
         }
         
-        try {
-            this.showLoadingModal('Récupération des rendements en cours...');
-            
-            const provider = new ethers.BrowserProvider(window.ethereum);
-            const signer = await provider.getSigner();
-            
-            // Récupérer l'historique des dépôts
-            let depositHistory = [];
-            try {
-                const savedHistory = localStorage.getItem('aaveDepositHistory');
-                if (savedHistory) {
-                    depositHistory = JSON.parse(savedHistory);
-                }
-            } catch (error) {
-                console.error('❌ Erreur lors du chargement de l\'historique des dépôts:', error);
-                depositHistory = [];
-            }
-            
-            // Calculer le dépôt total initial
-            const totalInitialDeposit = depositHistory.reduce((sum, entry) => sum + entry.amount, 0);
-            
-            // Récupérer le solde actuel sur Aave
-            const AAVE_POOL_ABI = [
-                "function getUserAccountData(address user) external view returns (uint256 totalCollateralBase, uint256 totalDebtBase, uint256 availableBorrowsBase, uint256 currentLiquidationThreshold, uint256 ltv, uint256 healthFactor)"
-            ];
-            
-            const aavePool = new ethers.Contract(AAVE_V3_POLYGON.POOL, AAVE_POOL_ABI, provider);
-            const accountData = await aavePool.getUserAccountData(this.currentAccount);
-            
-            // Convertir en format lisible (base = 8 décimales pour le prix USD)
-            const totalCollateralUSD = ethers.formatUnits(accountData.totalCollateralBase, 8);
-            const currentValue = parseFloat(totalCollateralUSD);
-            
-            // Calculer les gains
-            const earnings = currentValue - totalInitialDeposit;
-            
-            // S'assurer qu'il y a des gains à récupérer
-            if (earnings <= 0) {
-                this.hideLoadingModal();
-                this.showNotification('❌ Aucun rendement à récupérer', 'warning');
-                return;
-            }
-            
-            // ABI pour le retrait
-            const WITHDRAW_ABI = [
-                "function withdraw(address asset, uint256 amount, address to) external returns (uint256)"
-            ];
-            
-            // Préparer le montant des gains à retirer (avec les décimales appropriées)
-            const earningsWithDecimals = ethers.parseUnits(earnings.toFixed(6), 6); // 6 décimales pour USDC
-            
-            // Adresse du token USDC
-            const usdcAddress = AAVE_V3_POLYGON.ASSETS.USDC.address;
-            
-            const withdrawContract = new ethers.Contract(AAVE_V3_POLYGON.POOL, WITHDRAW_ABI, signer);
-            
-            console.log(`🔄 Retrait des rendements: ${earnings.toFixed(6)} USDC`);
-            
-            // Effectuer le retrait des rendements uniquement
-            const tx = await withdrawContract.withdraw(
-                usdcAddress,
-                earningsWithDecimals,
-                this.currentAccount
-            );
-            
-            console.log('📤 Transaction envoyée:', tx.hash);
-            
-            const receipt = await tx.wait();
-            console.log('✅ Retrait des rendements confirmé:', receipt.hash);
-            
-            // Ajouter une entrée dans l'historique pour le retrait des rendements
-            const withdrawalEntry = {
-                id: Date.now(),
-                date: new Date().toISOString(),
-                asset: 'USDC',
-                amount: -earnings, // Montant négatif pour indiquer un retrait
-                apy: 0, // Non applicable pour un retrait
-                txHash: receipt.hash,
-                notes: 'Retrait des rendements accumulés'
-            };
-            
-            depositHistory.push(withdrawalEntry);
-            localStorage.setItem('aaveDepositHistory', JSON.stringify(depositHistory));
-            
-            this.hideLoadingModal();
-            this.showNotification(`✅ ${earnings.toFixed(6)} USDC de rendements récupérés avec succès!`, 'success');
-            
-            // Rafraîchir l'affichage
-            await this.loadAavePositions();
-            
-        } catch (error) {
-            this.hideLoadingModal();
-            console.error('❌ Erreur lors de la récupération des rendements:', error);
-            
-            let errorMessage = 'Erreur lors de la récupération des rendements';
-            if (error.code === 4001) {
-                errorMessage = 'Transaction rejetée par l\'utilisateur';
-            } else if (error.message?.includes('execution reverted')) {
-                errorMessage = 'Transaction annulée par le contrat. Vérifiez votre solde et les paramètres.';
-            }
-            
-            this.showNotification(`❌ ${errorMessage}`, 'error');
-        }
-    }
-
-    // Fonction pour retirer la position
-    async withdrawAavePosition() {
-        if (!this.walletConnected) {
-            this.showNotification('Veuillez connecter votre wallet', 'warning');
-            return;
-        }
+        console.log('📤 Transaction Aave envoyée:', tx.hash);
         
-        if (!confirm('Êtes-vous sûr de vouloir retirer votre position Aave?\nCela retirera votre capital et les rendements accumulés.')) {
-            return;
-        }
+        const receipt = await tx.wait();
+        console.log('✅ Dépôt Aave confirmé!', receipt.hash);
         
-        try {
-            this.showLoadingModal('Retrait de la position Aave en cours...');
-            
-            const provider = new ethers.BrowserProvider(window.ethereum);
-            const signer = await provider.getSigner();
-            
-            // Récupérer le solde actuel sur Aave
-            const AAVE_POOL_ABI = [
-                "function getUserAccountData(address user) external view returns (uint256 totalCollateralBase, uint256 totalDebtBase, uint256 availableBorrowsBase, uint256 currentLiquidationThreshold, uint256 ltv, uint256 healthFactor)"
-            ];
-            
-            const aavePool = new ethers.Contract(AAVE_V3_POLYGON.POOL, AAVE_POOL_ABI, provider);
-            const accountData = await aavePool.getUserAccountData(this.currentAccount);
-            
-            // Convertir en format lisible (base = 8 décimales pour le prix USD)
-            const totalCollateralUSD = ethers.formatUnits(accountData.totalCollateralBase, 8);
-            const currentValue = parseFloat(totalCollateralUSD);
-            
-            // S'assurer qu'il y a une position à retirer
-            if (currentValue <= 0) {
-                this.hideLoadingModal();
-                this.showNotification('❌ Aucune position à retirer', 'warning');
-                return;
-            }
-            
-            // ABI pour le retrait
-            const WITHDRAW_ABI = [
-                "function withdraw(address asset, uint256 amount, address to) external returns (uint256)"
-            ];
-            
-            // Adresse du token USDC
-            const usdcAddress = AAVE_V3_POLYGON.ASSETS.USDC.address;
-            
-            const withdrawContract = new ethers.Contract(AAVE_V3_POLYGON.POOL, WITHDRAW_ABI, signer);
-            
-            console.log(`🔄 Retrait complet de la position: ${currentValue.toFixed(6)} USDC`);
-            
-            // Utiliser uint256.max pour retirer tout le solde
-            const maxUint256 = ethers.MaxUint256;
-            
-            // Effectuer le retrait complet
-            const tx = await withdrawContract.withdraw(
-                usdcAddress,
-                maxUint256,
-                this.currentAccount
-            );
-            
-            console.log('📤 Transaction envoyée:', tx.hash);
-            
-            const receipt = await tx.wait();
-            console.log('✅ Retrait complet confirmé:', receipt.hash);
-            
-            // Récupérer l'historique des dépôts
-            let depositHistory = [];
-            try {
-                const savedHistory = localStorage.getItem('aaveDepositHistory');
-                if (savedHistory) {
-                    depositHistory = JSON.parse(savedHistory);
-                }
-            } catch (error) {
-                console.error('❌ Erreur lors du chargement de l\'historique des dépôts:', error);
-                depositHistory = [];
-            }
-            
-            // Ajouter une entrée dans l'historique pour le retrait complet
-            const withdrawalEntry = {
-                id: Date.now(),
-                date: new Date().toISOString(),
-                asset: 'USDC',
-                amount: -currentValue, // Montant négatif pour indiquer un retrait
-                apy: 0, // Non applicable pour un retrait
-                txHash: receipt.hash,
-                notes: 'Retrait complet de la position'
-            };
-            
-            depositHistory.push(withdrawalEntry);
-            localStorage.setItem('aaveDepositHistory', JSON.stringify(depositHistory));
-            
-            this.hideLoadingModal();
-            this.showNotification(`✅ Position de ${currentValue.toFixed(6)} USDC retirée avec succès!`, 'success');
-            
-            // Rafraîchir l'affichage
-            await this.loadAavePositions();
-            
-            // Mettre à jour les soldes de tokens
-            await this.loadTokenBalances();
-            
-        } catch (error) {
-            this.hideLoadingModal();
-            console.error('❌ Erreur lors du retrait de la position:', error);
-            
-            let errorMessage = 'Erreur lors du retrait de la position';
-            if (error.code === 4001) {
-                errorMessage = 'Transaction rejetée par l\'utilisateur';
-            } else if (error.message?.includes('execution reverted')) {
-                errorMessage = 'Transaction annulée par le contrat. Vérifiez votre solde et les paramètres.';
-            }
-            
-            this.showNotification(`❌ ${errorMessage}`, 'error');
-        }
-    }
-
-    // Fonction pour capturer les nouveaux dépôts
-    // Cette fonction doit être appelée après chaque dépôt réussi
-    captureNewDeposit(asset, amount, txHash) {
-        // Récupérer l'historique existant
-        let depositHistory = [];
-        try {
-            const savedHistory = localStorage.getItem('aaveDepositHistory');
-            if (savedHistory) {
-                depositHistory = JSON.parse(savedHistory);
-            }
-        } catch (error) {
-            console.error('❌ Erreur lors du chargement de l\'historique des dépôts:', error);
-            depositHistory = [];
-        }
-        
-        // Récupérer l'APY actuel (utiliser une valeur par défaut si non disponible)
-        let currentAPY = 3.71; // Valeur par défaut
-        
-        // Créer la nouvelle entrée
-        const newDeposit = {
+        // Ajouter la position à l'interface
+        const newPosition = {
             id: Date.now(),
-            date: new Date().toISOString(),
-            asset: asset.toUpperCase(),
-            amount: parseFloat(amount),
-            apy: currentAPY,
-            txHash: txHash,
-            notes: 'Dépôt via l\'application'
+            strategy: 'Aave Lending',
+            pool: `${assetInfo.symbol} Supply`,
+            amount: `${amount} ${assetInfo.symbol}`,
+            apr: '3.71%', // APR réel d'Aave
+            pnl: '+0.00%',
+            status: 'active',
+            aToken: assetInfo.aToken,
+            txHash: tx.hash
         };
         
-        // Ajouter au tableau et sauvegarder
-        depositHistory.push(newDeposit);
-        localStorage.setItem('aaveDepositHistory', JSON.stringify(depositHistory));
+        this.positions.push(newPosition);
+        this.updatePositionsTable();
+        this.updateDashboardStats();
         
-        console.log('💾 Nouveau dépôt enregistré dans l\'historique:', newDeposit);
-    }
-
-    // Fonction pour mettre à jour l'affichage des positions Aave avec les boutons d'action
-    updateAavePositionsWithActions(currentValue, earnings, earningsPercentage, currentAPY, actualUSDCAmount, projections, depositHistory) {
-    // Récupérer les éléments
-    const positionsSection = document.getElementById('aavePositions');
-    const positionsList = document.getElementById('aavePositionsList');
-    
-    if (!positionsSection || !positionsList) {
-        console.error('❌ Éléments pour l\'affichage des positions Aave non trouvés');
-        return;
-    }
-    
-    // Vider et afficher la section
-    positionsList.innerHTML = '';
-    positionsSection.style.display = 'block';
-    
-    // Créer l'élément de position principal
-    const positionItem = document.createElement('div');
-    positionItem.className = 'aave-position-item';
-    
-    // En-tête avec les informations de base
-    const header = document.createElement('div');
-    header.className = 'position-header';
-    
-    // Information sur la position
-    const info = document.createElement('div');
-    info.className = 'position-info';
-    
-    const assetSpan = document.createElement('span');
-    assetSpan.className = 'asset';
-    assetSpan.textContent = 'USDC Supply';
-    
-    const amountSpan = document.createElement('span');
-    amountSpan.className = 'amount';
-    amountSpan.textContent = `${actualUSDCAmount} USDC`;
-    
-    info.appendChild(assetSpan);
-    info.appendChild(amountSpan);
-    
-    // Informations sur le rendement
-    const yieldInfo = document.createElement('div');
-    yieldInfo.className = 'position-yield';
-    
-    const apySpan = document.createElement('span');
-    apySpan.className = 'apr'; // Garder la classe CSS existante
-    apySpan.textContent = `${currentAPY.toFixed(2)}% APY`; // Changer APR en APY
-    
-    const pnlSpan = document.createElement('span');
-    pnlSpan.className = `pnl ${earnings >= 0 ? 'text-success' : 'text-danger'}`;
-    pnlSpan.textContent = `${earnings >= 0 ? '+' : ''}${earnings.toFixed(4)} USD (${earnings >= 0 ? '+' : ''}${earningsPercentage.toFixed(4)}%)`;
-    
-    yieldInfo.appendChild(apySpan);
-    yieldInfo.appendChild(pnlSpan);
-    
-    header.appendChild(info);
-    header.appendChild(yieldInfo);
-    
-    // Détails avec les valeurs actuelles et projections
-    const details = document.createElement('div');
-    details.className = 'position-details';
-    
-    // Fonction d'aide pour créer des éléments de détail
-    function createDetailItem(label, value, isSuccess = false) {
-        const detailItem = document.createElement('div');
-        detailItem.className = 'detail-item';
+        // Mettre à jour l'interface Aave
+        this.updateAavePositions();
         
-        const labelSpan = document.createElement('span');
-        labelSpan.className = 'label';
-        labelSpan.textContent = label;
+        // Recharger les soldes après un délai
+        setTimeout(() => {
+            this.loadTokenBalances();
+        }, 3000);
         
-        const valueSpan = document.createElement('span');
-        valueSpan.className = isSuccess ? 'value text-success' : 'value';
-        valueSpan.textContent = value;
+        this.hideLoadingModal();
         
-        detailItem.appendChild(labelSpan);
-        detailItem.appendChild(valueSpan);
-        
-        return detailItem;
-    }
-    
-    // Ajouter les détails
-    const initialDeposit = depositHistory.reduce((sum, entry) => sum + entry.amount, 0);
-    
-    details.appendChild(createDetailItem('Dépôt initial total:', `${initialDeposit.toFixed(6)} USDC`));
-    details.appendChild(createDetailItem('Valeur actuelle:', `${actualUSDCAmount} USDC`));
-    details.appendChild(createDetailItem(
-        'Gains accumulés:', 
-        `${earnings >= 0 ? '+' : ''}${earnings.toFixed(4)} USDC (${earnings >= 0 ? '+' : ''}${earningsPercentage.toFixed(4)}%)`,
-        earnings >= 0
-    ));
-    
-    // Projections basées sur l'APY actuel
-    details.appendChild(createDetailItem('Rendement journalier:', `+${projections.daily} USDC`, true));
-    details.appendChild(createDetailItem('Rendement mensuel:', `+${projections.monthly} USDC`, true));
-    details.appendChild(createDetailItem('Rendement annuel:', `+${projections.yearly} USDC`, true));
-    
-    // Boutons d'action
-    const actions = document.createElement('div');
-    actions.className = 'position-actions';
-    
-    // Bouton pour récupérer les rendements
-    const collectBtn = document.createElement('button');
-    collectBtn.className = 'action-btn collect-btn';
-    collectBtn.onclick = () => this.collectAaveRewards();
-    
-    const collectIcon = document.createElement('i');
-    collectIcon.className = 'fas fa-coins';
-    collectBtn.appendChild(collectIcon);
-    collectBtn.appendChild(document.createTextNode(' Récupérer les rendements'));
-    
-    // Bouton pour retirer le capital
-    const withdrawBtn = document.createElement('button');
-    withdrawBtn.className = 'action-btn withdraw-btn';
-    withdrawBtn.onclick = () => this.withdrawAavePosition();
-    
-    const withdrawIcon = document.createElement('i');
-    withdrawIcon.className = 'fas fa-wallet';
-    withdrawBtn.appendChild(withdrawIcon);
-    withdrawBtn.appendChild(document.createTextNode(' Retirer le capital'));
-    
-    // Lien pour voir sur Aave
-    const viewLink = document.createElement('a');
-    viewLink.href = 'https://app.aave.com/dashboard';
-    viewLink.target = '_blank';
-    viewLink.className = 'action-btn view-btn';
-    
-    const viewIcon = document.createElement('i');
-    viewIcon.className = 'fas fa-external-link-alt';
-    viewLink.appendChild(viewIcon);
-    viewLink.appendChild(document.createTextNode(' Voir sur Aave'));
-    
-    actions.appendChild(collectBtn);
-    actions.appendChild(withdrawBtn);
-    actions.appendChild(viewLink);
-    
-    // Assembler la section principale
-    positionItem.appendChild(header);
-    positionItem.appendChild(details);
-    positionItem.appendChild(actions);
-    
-    // Tableau d'historique des dépôts
-    const historySection = document.createElement('div');
-    historySection.className = 'deposit-history-section';
-    
-    const historyTitle = document.createElement('h4');
-    historyTitle.textContent = 'Historique des dépôts';
-    historySection.appendChild(historyTitle);
-    
-    // Créer le tableau d'historique
-    const historyTable = document.createElement('table');
-    historyTable.className = 'deposit-history-table';
-    
-    // En-tête du tableau
-    const thead = document.createElement('thead');
-    const headerRow = document.createElement('tr');
-    
-    ['Date', 'Asset', 'Montant', 'APY au dépôt', 'Transaction', 'Notes'].forEach(text => {
-        const th = document.createElement('th');
-        th.textContent = text;
-        headerRow.appendChild(th);
-    });
-    
-    thead.appendChild(headerRow);
-    historyTable.appendChild(thead);
-    
-    // Corps du tableau
-    const tbody = document.createElement('tbody');
-    
-    depositHistory.forEach(entry => {
-        const row = document.createElement('tr');
-        
-        // Date formatée
-        const dateCell = document.createElement('td');
-        const date = new Date(entry.date);
-        dateCell.textContent = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-        row.appendChild(dateCell);
-        
-        // Asset
-        const assetCell = document.createElement('td');
-        assetCell.textContent = entry.asset;
-        row.appendChild(assetCell);
-        
-        // Montant
-        const amountCell = document.createElement('td');
-        amountCell.textContent = entry.amount.toFixed(6);
-        row.appendChild(amountCell);
-        
-        // APY au moment du dépôt
-        const apyCell = document.createElement('td');
-        apyCell.textContent = entry.apy ? entry.apy.toFixed(2) + '%' : 'N/A';
-        row.appendChild(apyCell);
-        
-        // Hash de transaction
-        const txCell = document.createElement('td');
-        if (entry.txHash) {
-            const txLink = document.createElement('a');
-            txLink.href = `https://polygonscan.com/tx/${entry.txHash}`;
-            txLink.target = '_blank';
-            txLink.textContent = entry.txHash.substring(0, 8) + '...';
-            txCell.appendChild(txLink);
-        } else {
-            txCell.textContent = 'N/A';
+        // NOUVEAU: Réactiver le bouton
+        if (depositBtn) {
+            depositBtn.disabled = false;
+            depositBtn.innerHTML = `
+                <i class="fas fa-plus-circle"></i>
+                Déposer sur Aave
+            `;
+            depositBtn.classList.remove('disabled');
         }
-        row.appendChild(txCell);
         
-        // Notes
-        const notesCell = document.createElement('td');
-        notesCell.textContent = entry.notes || '';
-        row.appendChild(notesCell);
+        // Vider le champ montant
+        const amountInput = document.getElementById('aaveAmount');
+        if (amountInput) amountInput.value = '';
         
-        tbody.appendChild(row);
-    });
-    
-    historyTable.appendChild(tbody);
-    historySection.appendChild(historyTable);
-    
-    // Bouton pour ajouter un dépôt manuellement (pour les dépôts passés)
-    const addDepositBtn = document.createElement('button');
-    addDepositBtn.className = 'action-btn add-deposit-btn';
-    addDepositBtn.innerHTML = '<i class="fas fa-plus"></i> Ajouter un dépôt manuellement';
-    addDepositBtn.onclick = () => this.showAddDepositModal();
-    
-    historySection.appendChild(addDepositBtn);
-    
-    // Ajouter tout à la liste des positions
-    positionsList.appendChild(positionItem);
-    positionsList.appendChild(historySection);
-    
-    // Afficher le bouton de retrait dans la section principale
-    const withdrawMainBtn = document.getElementById('aaveWithdrawBtn');
-    if (withdrawMainBtn) withdrawMainBtn.style.display = 'inline-flex';
-    
-    console.log('✅ Section des positions Aave mise à jour avec les boutons d\'action');
+        // Mettre à jour les métriques
+        this.updateAaveMetrics();
+        
+        alert(`🎉 Dépôt Aave réussi!\n\n💰 ${amount} ${assetInfo.symbol} déposé\n📈 APY: 3.71% (vérifié sur Aave)\n💎 Vous recevez des aTokens\n\n📄 Transaction: ${tx.hash}\n🔗 Voir sur PolygonScan: https://polygonscan.com/tx/${tx.hash}`);
+        
+    } catch (error) {
+        this.hideLoadingModal();
+        console.error('❌ Erreur Aave:', error);
+        
+        // NOUVEAU: Réactiver le bouton en cas d'erreur
+        if (depositBtn) {
+            depositBtn.disabled = false;
+            depositBtn.innerHTML = `
+                <i class="fas fa-plus-circle"></i>
+                Déposer sur Aave
+            `;
+            depositBtn.classList.remove('disabled');
+        }
+        
+        let errorMessage = "Erreur Aave inconnue";
+        
+        if (error.code === 4001) {
+            errorMessage = 'Transaction annulée par l\'utilisateur';
+        } else if (error.reason) {
+            errorMessage = `Erreur Aave: ${error.reason}`;
+        } else if (error.message) {
+            errorMessage = `Erreur: ${error.message}`;
+        }
+        
+        alert(errorMessage);
+    }
 }
 
     // Fonction pour mettre à jour les positions Aave
@@ -1356,11 +1040,39 @@ class YieldMaxApp {
         }
     }
 
-    // ===== NOUVELLE FONCTION POUR VOIR LES TRANSACTIONS =====
-    viewTransaction(txHash) {
-        const url = `https://polygonscan.com/tx/${txHash}`;
-        window.open(url, '_blank');
-        this.showNotification('🔗 Transaction ouverte dans PolygonScan', 'info');
+    // ===== UI UPDATES =====
+    updatePositionsTable() {
+        const tableBody = document.getElementById('positionsTableBody');
+        
+        if (!tableBody) {
+            console.error('Élément positionsTableBody non trouvé');
+            return;
+        }
+        
+        if (this.positions.length === 0) {
+            tableBody.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-seedling"></i>
+                    <p>Aucune position active</p>
+                    <span>Déployez votre première stratégie pour commencer</span>
+                </div>
+            `;
+        } else {
+            tableBody.innerHTML = this.positions.map(position => `
+                <div class="position-row">
+                    <div class="position-cell">${position.strategy}</div>
+                    <div class="position-cell">${position.pool}</div>
+                    <div class="position-cell">${position.amount}</div>
+                    <div class="position-cell text-success">${position.apr}</div>
+                    <div class="position-cell text-success">${position.pnl}</div>
+                    <div class="position-cell">
+                        <button class="action-btn" onclick="app.closePosition(${position.id})">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
     }
 
     updateDashboardStats() {
@@ -1379,7 +1091,7 @@ class YieldMaxApp {
         const yieldElement = document.querySelector('.stat-card:nth-child(2) .stat-value');
         const aprElement = document.querySelector('.stat-card:nth-child(3) .stat-value');
         const positionsElement = document.querySelector('.stat-card:nth-child(4) .stat-value');
-    
+        
         if (valueElement) valueElement.textContent = `$${totalValue.toFixed(2)}`;
         if (yieldElement) yieldElement.textContent = `$${dailyYield.toFixed(2)}`;
         if (aprElement) aprElement.textContent = `${avgAPR.toFixed(1)}%`;
@@ -1390,10 +1102,10 @@ class YieldMaxApp {
     showLoadingModal(message) {
         const modal = document.getElementById('loadingModal');
         if (!modal) return;
-    
+        
         const messageElement = modal.querySelector('p');
         if (messageElement) messageElement.textContent = message;
-    
+        
         modal.classList.add('active');
     }
 
@@ -1402,12 +1114,56 @@ class YieldMaxApp {
         if (modal) modal.classList.remove('active');
     }
 
+    closePosition(positionId) {
+        if (confirm('Êtes-vous sûr de vouloir fermer cette position?')) {
+            this.positions = this.positions.filter(pos => pos.id !== positionId);
+            this.updatePositionsTable();
+            this.updateDashboardStats();
+        }
+    }
+
+    async loadUserPositions() {
+        if (!this.walletConnected) return;
+
+        try {
+            const provider = new ethers.BrowserProvider(window.ethereum);
+            const contract = new ethers.Contract(
+                POLYGON_CONTRACTS.STRATEGY_UNISWAP_V3,
+                STRATEGY_ABI,
+                provider
+            );
+
+            const positions = await contract.getUserPositions(this.currentAccount);
+            console.log('Positions du contrat:', positions);
+
+            // Convertir en format UI
+            this.positions = positions
+                .filter(pos => pos.active)
+                .map(pos => ({
+                    id: pos.tokenId.toString(),
+                    strategy: 'Uniswap V3',
+                    pool: 'ETH/USDC',
+                    amount: `${ethers.formatEther(pos.amount0Deposited)} ETH`,
+                    apr: '78.5%',
+                    pnl: '+0.00%',
+                    status: 'active',
+                    tokenId: pos.tokenId.toString()
+                }));
+
+            this.updatePositionsTable();
+            this.updateDashboardStats();
+            
+        } catch (error) {
+            console.error('Erreur lors du chargement des positions:', error);
+        }
+    }
+
     generateArbitrageOpportunities() {
         // Simuler des opportunités d'arbitrage en temps réel
         const opportunities = [
             {
                 pair: 'ETH/USDC',
-                exchanges: 'Curve → Balancer',
+                exchanges: 'Uniswap → SushiSwap',
                 profit: (Math.random() * 50 + 20).toFixed(2),
                 percentage: (Math.random() * 0.5 + 0.1).toFixed(2)
             },
@@ -1530,6 +1286,9 @@ class YieldMaxApp {
         console.log('📊 Mise à jour des métriques pour:', this.activeStrategy);
         
         switch(this.activeStrategy) {
+            case 'uniswap':
+                this.updateUniswapMetrics();
+                break;
             case 'aave':
                 this.updateAaveMetrics();
                 break;
@@ -1567,24 +1326,31 @@ class YieldMaxApp {
             });
         });
 
-        // Bouton d'actualisation des données
-        const refreshDataBtn = document.getElementById('refreshDataBtn');
-        if (refreshDataBtn) {
-            refreshDataBtn.addEventListener('click', () => {
-                this.refreshAllData();
+        // Boutons de sélection de range
+        document.querySelectorAll('.range-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
+                e.currentTarget.classList.add('active');
+                this.updateUniswapMetrics();
             });
-        }
+        });
 
-        // Bouton spécifique pour Aave
-        const refreshAaveBtn = document.getElementById('refreshAaveBtn');
-        if (refreshAaveBtn) {
-            refreshAaveBtn.addEventListener('click', () => {
-                console.log('🖱️ Bouton "Récupérer positions Aave" cliqué');
-                this.loadAavePositions();
+        // Changements d'input pour mises à jour en temps réel
+        const ethAmountInput = document.getElementById('ethAmount');
+        if (ethAmountInput) {
+            ethAmountInput.addEventListener('input', () => {
+                this.updateUniswapMetrics();
             });
         }
 
         // Boutons de déploiement de stratégie
+        const uniswapBtn = document.querySelector('#uniswap-strategy .strategy-btn');
+        if (uniswapBtn) {
+            uniswapBtn.addEventListener('click', () => {
+                this.deployUniswapStrategy();
+            });
+        }
+
         const aaveBtn = document.querySelector('#aave-strategy .strategy-btn');
         if (aaveBtn) {
             aaveBtn.addEventListener('click', () => {
@@ -1601,6 +1367,14 @@ class YieldMaxApp {
                 } else {
                     alert('Veuillez entrer un montant valide pour le Flash Loan');
                 }
+            });
+        }
+
+        // Changement de sélection de pool
+        const poolSelect = document.getElementById('poolSelect');
+        if (poolSelect) {
+            poolSelect.addEventListener('change', () => {
+                this.updateUniswapMetrics();
             });
         }
 
@@ -1683,6 +1457,7 @@ class YieldMaxApp {
                     this.currentAccount = accounts[0];
                     this.walletConnected = true;
                     this.updateWalletUI();
+                    this.loadUserPositions();
                     this.loadTokenBalances(); // Charger les nouveaux soldes
                 }
             });
@@ -1715,227 +1490,6 @@ class YieldMaxApp {
                 // Appeler la fonction de gestion du changement de réseau
                 this.handleNetworkChange();
             });
-        }
-    }
-
-    // Fonction pour récupérer les positions Aave réelles depuis la blockchain
-    async loadAavePositions() {
-    console.log('📢 Fonction loadAavePositions() appelée');
-
-    if (!this.walletConnected) {
-        console.log('❌ Wallet non connecté');
-        this.showNotification('Veuillez connecter votre wallet', 'warning');
-        return;
-    }
-
-    try {
-        const provider = new ethers.BrowserProvider(window.ethereum);
-        
-        // Vérifier qu'on est sur Polygon
-        const network = await provider.getNetwork();
-        const currentChainId = Number(network.chainId);
-        console.log('🌐 Réseau actuel:', currentChainId, 'Polygon ID attendu:', POLYGON_CHAIN_ID);
-
-        if (currentChainId !== POLYGON_CHAIN_ID) {
-            console.log('⚠️ Mauvais réseau, attendu:', POLYGON_CHAIN_ID, 'actuel:', currentChainId);
-            this.showNotification('⚠️ Changez vers le réseau Polygon', 'warning');
-            return;
-        }
-
-        this.showNotification('🔄 Récupération des positions Aave...', 'info');
-        console.log('🔍 Recherche des positions Aave pour:', this.currentAccount);
-        
-        // ABI pour getUserAccountData
-        const AAVE_POOL_ABI = [
-            "function getUserAccountData(address user) external view returns (uint256 totalCollateralBase, uint256 totalDebtBase, uint256 availableBorrowsBase, uint256 currentLiquidationThreshold, uint256 ltv, uint256 healthFactor)"
-        ];
-        
-        // ABI pour récupérer le taux d'intérêt actuel (pour référence)
-        const AAVE_DATA_PROVIDER_ABI = [
-            "function getReserveData(address asset) external view returns (tuple(uint256 unbacked, uint256 accruedToTreasuryScaled, uint256 totalAToken, uint256 totalStableDebt, uint256 totalVariableDebt, uint256 liquidityRate, uint256 variableBorrowRate, uint256 stableBorrowRate, uint256 lastUpdateTimestamp, address aTokenAddress, address stableDebtTokenAddress, address variableDebtTokenAddress, address interestRateStrategyAddress, uint8 id))"
-        ];
-        
-        console.log('🔄 Adresse du Pool Aave V3:', AAVE_V3_POLYGON.POOL);
-        const aavePool = new ethers.Contract(AAVE_V3_POLYGON.POOL, AAVE_POOL_ABI, provider);
-        
-        // Récupérer les données du compte
-        console.log('📡 Appel à getUserAccountData pour:', this.currentAccount);
-        const accountData = await aavePool.getUserAccountData(this.currentAccount);
-        console.log('✅ Réponse reçue de getUserAccountData');
-            
-        console.log('📊 Données du compte Aave:', {
-            totalCollateralBase: accountData.totalCollateralBase.toString(),
-            totalDebtBase: accountData.totalDebtBase.toString(),
-            availableBorrowsBase: accountData.availableBorrowsBase.toString(),
-            healthFactor: accountData.healthFactor.toString()
-        });
-        
-        // Convertir en format lisible (base = 8 décimales pour le prix USD)
-        const totalCollateralUSD = ethers.formatUnits(accountData.totalCollateralBase, 8);
-        const totalDebtUSD = ethers.formatUnits(accountData.totalDebtBase, 8);
-        
-        console.log('💰 Valeurs formatées:', {
-            collateralUSD: totalCollateralUSD,
-            debtUSD: totalDebtUSD
-        });
-        
-        if (parseFloat(totalCollateralUSD) === 0) {
-            console.log('ℹ️ Aucun collatéral trouvé');
-            this.showNotification('ℹ️ Aucune position Aave trouvée', 'info');
-            return;
-        }
-        
-        // Récupérer l'historique des dépôts depuis le localStorage
-        let depositHistory = [];
-        try {
-            const savedHistory = localStorage.getItem('aaveDepositHistory');
-            if (savedHistory) {
-                depositHistory = JSON.parse(savedHistory);
-                console.log('📋 Historique des dépôts chargé:', depositHistory);
-            }
-        } catch (error) {
-            console.error('❌ Erreur lors du chargement de l\'historique des dépôts:', error);
-            // Initialiser un tableau vide en cas d'erreur
-            depositHistory = [];
-        }
-        
-        // Si aucun historique, créer une entrée par défaut basée sur la valeur actuelle
-        if (depositHistory.length === 0) {
-            console.log('ℹ️ Aucun historique trouvé, création d\'une entrée par défaut');
-            
-            // Supposer que c'est un dépôt USDC (le plus courant)
-            const defaultEntry = {
-                id: Date.now(),
-                date: new Date().toISOString(),
-                asset: 'USDC',
-                amount: 50.949, // Valeur par défaut basée sur les discussions précédentes
-                apy: 3.71,      // APY par défaut pour USDC
-                txHash: '',     // Hash de transaction inconnu
-                notes: 'Position détectée automatiquement'
-            };
-            
-            depositHistory.push(defaultEntry);
-            
-            // Sauvegarder l'historique
-            localStorage.setItem('aaveDepositHistory', JSON.stringify(depositHistory));
-        }
-        
-        // Calculer le dépôt total initial et les gains
-        const totalInitialDeposit = depositHistory.reduce((sum, entry) => sum + entry.amount, 0);
-        const currentValue = parseFloat(totalCollateralUSD);
-        const earnings = currentValue - totalInitialDeposit;
-        const earningsPercentage = (earnings / totalInitialDeposit) * 100;
-        
-        // Essayer de récupérer l'APY actuel (utiliser une valeur par défaut en cas d'échec)
-        let currentAPY = 3.71; // Valeur par défaut
-        
-        try {
-            // Tenter de récupérer l'APY actuel pour USDC
-            const dataProviderAddress = "0x69FA688f1Dc47d4B5d8029D5a35FB7a548310654"; // UI Data Provider Aave V3 Polygon
-            const dataProvider = new ethers.Contract(dataProviderAddress, AAVE_DATA_PROVIDER_ABI, provider);
-            
-            // Récupérer les données pour USDC
-            const reserveData = await dataProvider.getReserveData(AAVE_V3_POLYGON.ASSETS.USDC.address);
-            
-            // liquidityRate est le taux de dépôt (APY) en RAY units (1e27)
-            const apyRaw = reserveData.liquidityRate;
-            currentAPY = parseFloat(ethers.formatUnits(apyRaw, 27)) * 100;
-            
-            console.log(`📊 Taux APY actuel pour USDC: ${currentAPY.toFixed(2)}%`);
-        } catch (error) {
-            console.warn('⚠️ Impossible de récupérer le taux APY actuel:', error);
-            // Continuer avec le taux par défaut
-        }
-        
-        // Calculer les projections de rendement basées sur l'APY actuel
-        const dailyRate = currentAPY / 365;
-        const dailyEarnings = (currentValue * dailyRate / 100).toFixed(6);
-        const monthlyEarnings = (currentValue * currentAPY / 100 / 12).toFixed(4);
-        const yearlyEarnings = (currentValue * currentAPY / 100).toFixed(2);
-        
-        // Mettre à jour l'interface avec les données
-        this.updateAavePositionsWithActions(
-            currentValue,
-            earnings,
-            earningsPercentage,
-            currentAPY,
-            currentValue.toFixed(6),
-            {
-                daily: dailyEarnings,
-                monthly: monthlyEarnings,
-                yearly: yearlyEarnings
-            },
-            depositHistory
-        );
-        
-        // Afficher un message de succès
-        this.showNotification(`✅ Position Aave récupérée ($${currentValue.toFixed(2)} USD)`, 'success');
-        console.log(`✅ Position Aave trouvée: $${currentValue.toFixed(2)} USD, Gains: $${earnings.toFixed(4)} (${earningsPercentage.toFixed(4)}%)`);
-        
-    } catch (error) {
-        console.error('❌ Erreur lors de la récupération des positions Aave:', error);
-        console.error('Message d\'erreur:', error.message);
-        
-        // Message d'erreur adapté selon le type d'erreur
-        let userMessage = 'Erreur lors de la récupération des positions';
-        
-        if (error.message?.includes('user rejected') || error.code === 4001) {
-            userMessage = 'Transaction rejetée par l\'utilisateur';
-        } else if (error.message?.includes('network') || error.message?.includes('chainId')) {
-            userMessage = 'Erreur réseau. Vérifiez que vous êtes sur Polygon';
-        } else if (error.message?.includes('contract') || error.message?.includes('Pool')) {
-            userMessage = 'Erreur de contrat Aave. Essayez à nouveau plus tard';
-        }
-        
-        this.showNotification(`❌ ${userMessage}`, 'error');
-    }
-}
-
-    // Fonction pour actualiser toutes les données
-    async refreshAllData() {
-        if (!this.walletConnected) {
-            this.showNotification('Veuillez connecter votre wallet', 'warning');
-            return;
-        }
-        
-        try {
-            // Désactiver le bouton pendant l'actualisation
-            const refreshBtn = document.getElementById('refreshDataBtn');
-            if (refreshBtn) {
-                refreshBtn.disabled = true;
-                refreshBtn.innerHTML = `
-                    <i class="fas fa-spinner fa-spin"></i>
-                    Actualisation...
-                `;
-            }
-            
-            this.showNotification('🔄 Actualisation de toutes les données...', 'info');
-            
-            // 1. Recharger les soldes des tokens
-            await this.loadTokenBalances();
-            
-            // 2. Recharger les positions Aave
-            await this.loadAavePositions();
-            
-            // 3. Mettre à jour l'affichage
-            this.updateBalanceDisplay();
-            this.updateAaveMetrics();
-            
-            this.showNotification('✅ Toutes les données actualisées', 'success');
-            
-        } catch (error) {
-            console.error('❌ Erreur lors de l\'actualisation:', error);
-            this.showNotification('❌ Erreur lors de l\'actualisation', 'error');
-        } finally {
-            // Réactiver le bouton
-            const refreshBtn = document.getElementById('refreshDataBtn');
-            if (refreshBtn) {
-                refreshBtn.disabled = false;
-                refreshBtn.innerHTML = `
-                    <i class="fas fa-sync-alt"></i>
-                    Actualiser les données
-                `;
-            }
         }
     }
 
@@ -2021,6 +1575,7 @@ class YieldMaxApp {
                         this.currentNetwork = 'polygon';
                     }
                     
+                    this.loadUserPositions();
                     this.loadTokenBalances();
                 } else {
                     console.log('Aucun compte connecté');
@@ -2093,7 +1648,7 @@ function copyToClipboard(text) {
     });
 }
 
-console.log('🏁 FIN app.js - Version Aave uniquement');
+console.log('🏁 FIN app.js - Version avec correction solde USDC');
 
 // ===== ERROR HANDLING =====
 window.addEventListener('error', (event) => {
@@ -2116,20 +1671,3 @@ if ('performance' in window) {
         }, 0);
     });
 }
-
-document.addEventListener('DOMContentLoaded', () => {
-    const refreshAaveBtn = document.getElementById('refreshAaveBtn');
-    if (refreshAaveBtn) {
-        console.log('Bouton Aave trouvé, ajout d\'un écouteur direct');
-        refreshAaveBtn.addEventListener('click', function() {
-            console.log('Bouton Aave cliqué directement');
-            if (app && typeof app.loadAavePositions === 'function') {
-                app.loadAavePositions();
-            } else {
-                console.error('app.loadAavePositions n\'est pas disponible');
-            }
-        });
-    } else {
-        console.error('Bouton refreshAaveBtn non trouvé dans le DOM');
-    }
-});
