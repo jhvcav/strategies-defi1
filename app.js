@@ -778,7 +778,6 @@ class YieldMaxApp {
             await this.loadTokenBalances();
             
             this.hideLoadingModal();
-            this.showNotification(`✅ ${amount} ${assetInfo.symbol} déposé avec succès!`, 'success');
             
             alert(`🎉 Dépôt Aave réussi!\n\n💰 ${amount} ${assetInfo.symbol} déposé\n📈 Vous recevez des aTokens qui génèrent des intérêts automatiquement\n\n📄 Transaction: ${tx.hash}\n🔗 Voir sur PolygonScan: https://polygonscan.com/tx/${tx.hash}`);
             
