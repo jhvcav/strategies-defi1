@@ -1777,12 +1777,6 @@ select:focus {
     gap: var(--space-md);
 }
 
-.position-info {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-xs);
-}
-
 .position-info .asset {
     font-weight: 700;
     color: var(--text-primary);
