@@ -749,10 +749,15 @@ class YieldMaxApp {
         return;
     }
 
-    // NOUVEAU: Prévention des double-clics
+    // CORRECTION: Vérification ET fermeture du modal si nécessaire
     const depositBtn = document.getElementById('aaveDepositBtn');
     if (depositBtn && depositBtn.disabled) {
         console.log('🚫 Transaction déjà en cours, double-clic ignoré');
+        
+        // NOUVEAU: S'assurer que le modal est fermé si on ignore la demande
+        this.hideLoadingModal();
+        
+        this.showNotification('⚠️ Une transaction est déjà en cours', 'warning');
         return;
     }
 
@@ -804,7 +809,7 @@ class YieldMaxApp {
         return;
     }
 
-    // NOUVEAU: Désactiver le bouton immédiatement
+    // CORRECTION: Désactiver le bouton et afficher le modal dans le bon ordre
     if (depositBtn) {
         depositBtn.disabled = true;
         depositBtn.innerHTML = `
@@ -814,6 +819,7 @@ class YieldMaxApp {
         depositBtn.classList.add('disabled');
     }
 
+    // Afficher le modal APRÈS avoir désactivé le bouton
     this.showLoadingModal('Dépôt sur Aave en cours...');
 
     try {
@@ -891,7 +897,7 @@ class YieldMaxApp {
             await approveTx.wait();
             console.log(`✅ ${assetInfo.symbol} approuvé`);
             
-            // NOUVEAU: Attendre un peu entre approve et supply
+            // Attendre un peu entre approve et supply
             await new Promise(resolve => setTimeout(resolve, 2000));
             
             // Déposer sur Aave
@@ -937,10 +943,11 @@ class YieldMaxApp {
             this.loadTokenBalances();
         }, 3000);
         
+        // CORRECTION: Fermer le modal et réactiver le bouton dans le bon ordre
         this.hideLoadingModal();
         this.showNotification(`✅ ${amount} ${assetInfo.symbol} déposé avec succès!`, 'success');
         
-        // NOUVEAU: Réactiver le bouton
+        // Réactiver le bouton
         if (depositBtn) {
             depositBtn.disabled = false;
             depositBtn.innerHTML = `
@@ -960,10 +967,11 @@ class YieldMaxApp {
         alert(`🎉 Dépôt Aave réussi!\n\n💰 ${amount} ${assetInfo.symbol} déposé\n📈 APY: 3.71% (vérifié sur Aave)\n💎 Vous recevez des aTokens\n\n📄 Transaction: ${tx.hash}\n🔗 Voir sur PolygonScan: https://polygonscan.com/tx/${tx.hash}`);
         
     } catch (error) {
+        // CORRECTION: Toujours fermer le modal en cas d'erreur
         this.hideLoadingModal();
         console.error('❌ Erreur Aave:', error);
         
-        // NOUVEAU: Réactiver le bouton en cas d'erreur
+        // Réactiver le bouton en cas d'erreur
         if (depositBtn) {
             depositBtn.disabled = false;
             depositBtn.innerHTML = `
