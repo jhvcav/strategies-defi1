@@ -1363,6 +1363,12 @@ updateAavePositionsWithActions(currentValue, earnings, earningsPercentage, curre
     // En-tête avec les informations de base
     const header = document.createElement('div');
     header.className = 'position-header';
+
+    // NOUVEAU : Ajouter un badge de statut en premier
+    const statusBadge = document.createElement('div');
+    statusBadge.className = 'position-status';
+    statusBadge.textContent = 'Actif';
+    positionItem.appendChild(statusBadge);
     
     // Information sur la position
     const info = document.createElement('div');
@@ -1431,12 +1437,6 @@ updateAavePositionsWithActions(currentValue, earnings, earningsPercentage, curre
     // Boutons d'action (COMPACTS EN LIGNE)
     const actions = document.createElement('div');
     actions.className = 'position-actions';
-
-    // NOUVEAU : Ajouter un badge de statut en premier
-    const statusBadge = document.createElement('div');
-    statusBadge.className = 'position-status';
-    statusBadge.textContent = 'Actif';
-    positionItem.appendChild(statusBadge);
     
     // Bouton pour récupérer les rendements
     const collectBtn = document.createElement('button');
