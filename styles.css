@@ -1393,18 +1393,6 @@ select:focus {
     gap: var(--space-md);
 }
 
-.aave-position-item {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    padding: var(--space-lg);
-    display: grid;
-    grid-template-columns: 1fr auto;
-    align-items: center;
-    gap: var(--space-lg);
-    transition: all 0.2s ease;
-}
-
 .aave-position-item:hover {
     border-color: var(--success);
     transform: translateY(-1px);
@@ -1793,18 +1781,6 @@ select:focus {
     display: flex;
     flex-direction: column;
     gap: var(--space-md);
-}
-
-.aave-position-item {
-    background: var(--bg-tertiary);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    padding: var(--space-lg);
-    display: grid;
-    grid-template-columns: 1fr auto;
-    align-items: center;
-    gap: var(--space-lg);
-    transition: all 0.2s ease;
 }
 
 .aave-position-item:hover {
@@ -2338,14 +2314,6 @@ select:focus {
     gap: var(--space-md);
 }
 
-.aave-position-item {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    padding: var(--space-lg);
-    transition: all 0.3s ease;
-}
-
 .aave-position-item:hover {
     border-color: var(--primary);
     transform: translateY(-2px);
@@ -2689,7 +2657,7 @@ select:focus {
     background: linear-gradient(135deg, var(--bg-glass) 0%, var(--bg-secondary) 100%);
     border: 1px solid var(--border);
     border-radius: var(--radius-xl);
-    padding: var(--space-lg);
+    padding: var(--space-xl) var(--space-lg) var(--space-lg) var(--space-lg); /* top, right, bottom, left */
     transition: all 0.3s ease;
     position: relative;
     overflow: hidden;
